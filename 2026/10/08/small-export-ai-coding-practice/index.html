@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>small-export 故障诊断 AI 开发实践总结 | MapleStory</title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/css/screen.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400">
+</head>
+<body class="post-template">
+  <header class="site-head" style="background-image: url(/img/banner.jpg)">
+    <div class="vertical"><div class="site-head-content inner">
+      <a class="blog-logo" href="/"><img src="https://blog.ghost.org/content/images/2013/Nov/bloglogo_1-1.png" alt="Blog Logo"></a>
+      <h1 class="blog-title">MapleStory</h1>
+      <h2 class="blog-description"></h2>
+    </div></div>
+  </header>
+  <main class="content" role="main">
+  <article class="post">
+    <span class="post-meta"><time datetime="2026-10-07T16:00:00.000Z" itemprop="datePublished">2026-10-08</time></span>
+    <h1 class="post-title">small-export 故障诊断 AI 开发实践总结</h1>
+    <section class="post-content"><p>实践统计范围：2026-09-23 至 2026-10-04。本文基于 10 月 7 日修订的复盘，需求与验收状态采用 10 月 4 日的 v2.6 归档快照。</p>
+<p>small-export 这次实践表明，AI 已能在明确的系统约束下持续完成跨仓设计、实现、编译、故障注入、QEMU 验证和证据归档，形成多条真实故障诊断链路。完整功能验收仍待完成。下一轮改进应围绕交付组织工作：主 agent 保持目标和验收进度，测试子 agent 承担复杂排障，各项结果持续集成到同一候选产品；人工集中处理需求歧义和质量取舍。</p>
+<p>本次主会话跨越约 <strong>10 天 18 小时</strong>，233 个运行回合累计记录 <strong>135 小时 9 分钟</strong>运行计时，识别到 <strong>51 条明确人工文字输入</strong>。这是人工定规格和纠偏、AI 持续自主执行的协作计时；人工投入和节省工时需要另设对照记录。早于 9 月 23 日的调研、原型和验证作为既有输入，统计从本次会话开始。</p>
+<h2 id="1-需求范围与已经达成的目标"><a href="#1-需求范围与已经达成的目标" class="headerlink" title="1 需求范围与已经达成的目标"></a>1 需求范围与已经达成的目标</h2><h3 id="1-1-需求实际覆盖什么"><a href="#1-1-需求实际覆盖什么" class="headerlink" title="1.1 需求实际覆盖什么"></a>1.1 需求实际覆盖什么</h3><p>目标产品为 <strong>Hi3516DV300、Linux 5.10、ARM32、OpenHarmony Small</strong>。实施期间，本轮验收平台调整为 QEMU：阶段验证使用 Linux 6.6 ARM32 环境，最终软件功能验收使用 Mac 上的 3516 定向 Linux 5.10 ARM32 QEMU。物理开发板的外设、功耗和板级时序不在本轮软件验收的证明范围内。</p>
+<p>需求涉及三类故障及公共基础设施：</p>
+<table>
+<thead>
+<tr>
+<th>范围</th>
+<th>希望解决的问题</th>
+<th>最终效果的判断标准</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AppFreeze</td>
+<td>应用主队列、生命周期和服务核心队列阻塞后缺少可靠诊断</td>
+<td>正确计时，保留目标线程和进程现场，区分恢复与持续冻结；检测与慢采集相互隔离</td>
+</tr>
+<tr>
+<td>JS Error</td>
+<td>JerryScript 异常需要可靠进入服务侧报告链</td>
+<td>保留真实异常和来源，通过 notifyAppFault 认证通知；捕获过的异常不误报</td>
+</tr>
+<tr>
+<td>CppCrash</td>
+<td>Native 崩溃日志需要多线程现场及可选 Jerry 信息</td>
+<td>在正确时机采集，能证明归属和顺序才混排；无法关联时保留独立 JS 信息</td>
+</tr>
+<tr>
+<td>HiCollie Lite 与 BBox</td>
+<td>低资源系统需要轻量监控和另一条目标线程采集路径</td>
+<td>Timer 增删不引入动态分配；同次超时分别请求进程栈与 BBox 目标线程栈</td>
+</tr>
+<tr>
+<td>faultloggerd 与 HiSysEvent&#x2F;Hiview</td>
+<td>日志文件、事件通知、读取及老化需要一致</td>
+<td>取得 FD、完成文件后再发 LOG_PATH 事件；复用既有配额，验证真实读取效果</td>
+</tr>
+<tr>
+<td>构建与裁剪</td>
+<td>Small 产品需要按所选诊断能力引入最小依赖</td>
+<td>总关、Timer-only、JS-only、Native-only 等组合在源码、链接、线程和安装层面一致</td>
+</tr>
+</tbody></table>
+<p>这是一项系统工程需求。最初交接包拆为 <strong>17 个仓任务、180 条仓内用例和 43 条集成用例</strong>；9 月 27 日源码交付记录已经涉及 <strong>20 个仓</strong>。这些数字反映各阶段的工程规模；完成率应依据现行验收矩阵计算。后续 v2.6 调整了事件和老化方案，旧版通过项需要重新判断是否适用。</p>
+<p>当前重要约束包括：应用至多一个共享诊断线程；生命周期切换期间暂停应用 Watchdog；应用身份由服务侧提供；BBox 每次调用检查权限；Native 与 Jerry 可独立裁剪；AppFreeze 日志不输出 maps 原文；终止功能默认关闭。当前进程内主队列及 abilityms 队列默认 <strong>3&#x2F;6 秒</strong>，生命周期 Timer 默认 <strong>5&#x2F;10 秒</strong>，通过产品构建参数配置。</p>
+<h3 id="1-2-已经取得的实际效果"><a href="#1-2-已经取得的实际效果" class="headerlink" title="1.2 已经取得的实际效果"></a>1.2 已经取得的实际效果</h3><table>
+<thead>
+<tr>
+<th>产出</th>
+<th>已有证据支持的效果</th>
+<th>仍然存在的边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>需求与交接材料</td>
+<td>首轮形成 12 个审视模块、48 项问题和 11 张时序图，随后落实 21 项人工评审意见并形成逐仓设计与测试交接</td>
+<td>文档和图校验通过，只证明材料可供实施和审视</td>
+</tr>
+<tr>
+<td>跨仓实现</td>
+<td>监控、Jerry Provider、Native 采集、通知、文件管理、事件及构建配置均形成源码增量；保留精确补丁、构建及个人 fork 交付收据</td>
+<td>各增量有各自父提交和依赖，需在固定候选上集成验收</td>
+</tr>
+<tr>
+<td>真实 JS 通知链</td>
+<td>10 月 3 日，两类 QEMU 各运行 6 个签名 HAP 场景；4 个正例分别生成正文、metadata 和 Native 附件并消费一次 LOG_PATH 事件，2 个 catch 例不报告；24 个文件及 12 个库热读、停机冷读一致</td>
+<td>使用已核对的配套库和基础镜像；完整 VM、字段、资源边界及裁剪矩阵仍待验收</td>
+</tr>
+<tr>
+<td>Native 与 JS 栈</td>
+<td>两类 QEMU 都取得真实 SIGSEGV、多线程、Native&#x2F;Jerry 混排、独立 JS 及深栈截断证据；混排例记录 26 Native 帧与 4 JS 帧</td>
+<td>日志仍为 PARTIAL；线程覆盖与栈底完整性分别记录，64 帧上限触发时保留截断标记</td>
+</tr>
+<tr>
+<td>HiCollie 双路采集</td>
+<td>Linux 5.10 组件场景取得 Native 3&#x2F;3 或 4&#x2F;4 线程，以及 BBox 7&#x2F;13&#x2F;15 帧；能够保留已验证混排或独立 JS</td>
+<td>BBox 仍为 PARTIAL；该批 Linux 6.6 客体 BBox 为 ENOTTY，双环境结果分别保留</td>
+</tr>
+<tr>
+<td>冷启动环境修复</td>
+<td>定位 5.10 冷启动随机数未就绪，增加 QEMU virtio-rng 配置后，首次 JS 异常无需手工补熵即可走通文件与事件链；同时保留三类故障回归日志</td>
+<td>证据适用于该批 QEMU 配置与用户态；最新全产品干净构建待验，物理 3516 随机数方案另行验证</td>
+</tr>
+</tbody></table>
+<p>这些结果已经证明 AI 能执行实际开发和运行验证，尤其能把编译问题、通信权限、真实异常和日志字节核验连起来处理。它们也暴露了后续最需要加强的环节：把多个局部已验证增量收敛到同一候选产品上，完成当前版本的完整功能验收。</p>
+<h3 id="1-3-哪些目标尚未完成"><a href="#1-3-哪些目标尚未完成" class="headerlink" title="1.3 哪些目标尚未完成"></a>1.3 哪些目标尚未完成</h3><p>当前整体状态仍是 <strong>INCOMPLETE</strong>。现行主文保留六项待用户判断的 FAIL；非功能测试按用户要求 <strong>PAUSED</strong>，不阻塞本轮 QEMU 功能验收，也不计为 PASS。完整 FULL 报告与处置、字段及 VM 边界、裁剪、恢复和老化等矩阵仍未闭合。</p>
+<p>10 月 4 日门限修正后，R01 的 61 项 GN 检查通过，R07 参数传播和目标源文件编译通过；完整 abilityms 构建被复用输出树中的 mbedTLS 重复生成规则阻塞，当前 <strong>3&#x2F;6 秒 QEMU 验收尚未运行</strong>。5&#x2F;10 秒结果保留为历史记录，现行门限需补做 QEMU 验收。</p>
+<p>因此，本次可以评价为：<strong>需求、源码和若干真实故障链路已取得实质进展，最终软件功能验收尚未完成。</strong> 暂停的非功能测试属于范围管理决定；未闭合的功能项才是当前交付缺口。</p>
+<h2 id="2-AI-独立工作的输入时长与效果"><a href="#2-AI-独立工作的输入时长与效果" class="headerlink" title="2 AI 独立工作的输入时长与效果"></a>2 AI 独立工作的输入时长与效果</h2><h3 id="2-1-支撑-AI-自主工作的输入"><a href="#2-1-支撑-AI-自主工作的输入" class="headerlink" title="2.1 支撑 AI 自主工作的输入"></a>2.1 支撑 AI 自主工作的输入</h3><p>AI 开始本次工作时，已经具备以下基础：</p>
+<table>
+<thead>
+<tr>
+<th>输入</th>
+<th>本实践中的具体内容</th>
+<th>对自主执行的作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>既有工程材料</td>
+<td>small-export 与 AnrExp 中的原型、源码定位、补丁、日志和 QEMU 记录</td>
+<td>提供可继承对象，减少凭空设计</td>
+</tr>
+<tr>
+<td>人工技术判断</td>
+<td>9 月 23 日的 21 项意见，明确裁剪、线程复用、生命周期互斥、身份、权限、日志格式与 JS&#x2F;Native 边界</td>
+<td>决定产品目标和不变量</td>
+</tr>
+<tr>
+<td>可执行交接</td>
+<td>逐仓修改点、接口和并发设计、测试用例、开发顺序、回退及 QEMU 搭建说明</td>
+<td>让后续代理知道修改位置、验证方法和完成标准</td>
+</tr>
+<tr>
+<td>工具与环境</td>
+<td>源码工作树、工具链、QEMU、镜像、宿主测试、文件读取和个人 fork</td>
+<td>支持真正构建、运行、定位和交付</td>
+</tr>
+<tr>
+<td>持续目标与授权</td>
+<td>允许持续开发验证；中途明确最终使用 QEMU、停止 ZCode&#x2F;workflow、暂停非功能测试、归档并提交候选源码</td>
+<td>使 AI 能持续行动，同时限制工作范围</td>
+</tr>
+<tr>
+<td>人工反馈</td>
+<td>要求真实 BBox 双路日志、复用 faultloggerd 配额、采用 HiSysEvent + LOG_PATH、只维护一份现行设计、分开不同超时门限</td>
+<td>修正架构和验收方向</td>
+</tr>
+</tbody></table>
+<p>这里“独立工作”的准确含义是：<strong>在这些输入和约束内，AI 自行阅读、实施、调试、执行测试和整理交付，人工无需逐条指定操作。</strong> 需求决策、运行环境恢复、模型选择和最终签收仍有人工参与。复用这种工作方式，需要一并准备工程材料、可运行环境和验收条件。</p>
+<h3 id="2-2-按阶段核算工作时长"><a href="#2-2-按阶段核算工作时长" class="headerlink" title="2.2 按阶段核算工作时长"></a>2.2 按阶段核算工作时长</h3><p>下表采用主会话的 <code>task_complete</code> 与 <code>turn_aborted</code> 事件中记录的 <code>duration_ms</code>，包含已中止回合此前记录的运行时间。阶段按实际工作方式变化划分；回合从 1 开始编号，阶段小时数分别四舍五入。<a href="/assets/small-export-ai-coding-practice/summary.json">统计口径与数据摘要</a> · <a href="/assets/small-export-ai-coding-practice/turns.csv">233 回合计时与分类 CSV</a></p>
+<table>
+<thead>
+<tr>
+<th>阶段及北京时间</th>
+<th align="right">回合数</th>
+<th align="right">累计运行计时</th>
+<th>输入与取得的效果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>9 月 23 日 14:30–20:27，需求和交接设计</td>
+<td align="right">9</td>
+<td align="right">2.73 小时</td>
+<td>基于既有资料和 21 项意见，完成模块设计、日志、逐仓交接与测试规格</td>
+</tr>
+<tr>
+<td>9 月 23 日 20:38–24 日 21:22，Codex 驱动 ZCode</td>
+<td align="right">21</td>
+<td align="right">21.16 小时</td>
+<td>使用 GLM-5.3，后续用户手工切换 DeepSeek；推进 SDD&#x2F;AR 流程，形成部分可继承实现与阶段 QEMU 证据，未完成全部需求签收</td>
+</tr>
+<tr>
+<td>9 月 24 日 21:23–27 日 05:20，直接开发首阶段</td>
+<td align="right">59</td>
+<td align="right">55.25 小时</td>
+<td>接管既有增量，推进跨仓链路、5.10 QEMU、真实报告和故障注入；整体仍未签收</td>
+</tr>
+<tr>
+<td>9 月 27 日 07:26–30 日 11:32，评审与方案收敛</td>
+<td align="right">30</td>
+<td align="right">5.10 小时</td>
+<td>暂停非功能测试、审视失败、交付源码与归档；进一步明确双路采集、事件字段、配额复用和唯一设计</td>
+</tr>
+<tr>
+<td>10 月 1 日 19:07–4 日 08:34，按 v2.6 继续开发</td>
+<td align="right">114</td>
+<td align="right">50.91 小时</td>
+<td>推进真实认证通知、受管附件、事件链、裁剪和环境修复；发现并修正规格门限范围，当前功能矩阵仍未完成</td>
+</tr>
+<tr>
+<td><strong>合计</strong></td>
+<td align="right"><strong>233</strong></td>
+<td align="right"><strong>135.16 小时</strong></td>
+<td><strong>截至统计终点的累计执行与协作时间，整体功能验收待完成</strong></td>
+</tr>
+</tbody></table>
+<p>其中 229 个正常结束回合累计 <strong>129 小时 44 分钟 29 秒</strong>；4 个中止回合累计 <strong>5 小时 24 分钟 50 秒</strong>。这里“正常结束”只表示该回合结束，不表示项目或该回合全部功能已验收。两者合计的未取整值为 486,559,101 毫秒，即约 <strong>135 小时 9 分钟 19 秒</strong>。</p>
+<p>这一计时覆盖分析、工具操作、构建、QEMU 运行、等待、返工和归档，也可能包含回合内等待人工回复的时间。统计仅累计主会话回合时长，子代理和 ZCode 的时长不额外累加。会话日历跨度约 258.05 小时，回合间空档单独保留在日历跨度中。</p>
+<p>记录中有 191 个回合携带自动继续目标的上下文，说明长任务已能跨回合推进；部分自动回合内仍收到人工消息。51 条人工文字输入包含正常评审、新增需求、环境恢复、纠偏和归档要求。进一步评估自主程度，需要记录每次人工介入的目的、耗时和影响。</p>
+<h3 id="2-3-哪些具体工作已经能够自主完成"><a href="#2-3-哪些具体工作已经能够自主完成" class="headerlink" title="2.3 哪些具体工作已经能够自主完成"></a>2.3 哪些具体工作已经能够自主完成</h3><p>三个有代表性的单回合结果是：</p>
+<ol>
+<li><strong>首轮需求整理约 19.7 分钟。</strong> 将已有材料组织为 12 个模块、48 项审视问题和 11 张时序图。这体现资料整合能力，前期调研时间并未包含在这 19.7 分钟内。</li>
+<li><strong>21 项意见修订约 40.7 分钟。</strong> 将人工约束落实到 v2 设计、字段、日志样例及图中。AI 能迅速把评审意见扩散到相关材料，但意见本身由人工提供。</li>
+<li><strong>直接接管首轮约 73.5 分钟。</strong> 盘点可继承实现，完成 R07 通知协议编解码的宿主、内存检查和 ARM32 QEMU 验证，同时取得旧八场景回归结果。该轮仍明确指出统一鉴权、落盘及最终环境的缺口，未把原型回归等同 v2 交付。</li>
+</ol>
+<p>此后，AI 还完成了多轮真实故障构造、部署库哈希核对、权限拒绝验证、失败日志保留、冷停机后原文件回读和精确补丁交付。这些可复现的业务效果，是评价自主工作有效性的主要依据。<a href="/assets/small-export-ai-coding-practice/summary.json">统计口径与数据摘要</a></p>
+<h3 id="2-4-模型与工具在结果中分别起了什么作用"><a href="#2-4-模型与工具在结果中分别起了什么作用" class="headerlink" title="2.4 模型与工具在结果中分别起了什么作用"></a>2.4 模型与工具在结果中分别起了什么作用</h3><p>主会话元数据记录了 <code>gpt-6-astra</code>、<code>gpt-6-sol</code>、<code>gpt-6.1-sol</code> 和 <code>gpt-6-luna</code>；最初设计主要由 Astra 执行，后续由 Sol 系列等继续。ZCode 阶段另外存在 GLM-5.3 和用户手工切换 DeepSeek 的记录。主会话与 ZCode 分别记录模型来源，结果按对应执行层级归属。</p>
+<p>任务、规格、工具和基线在过程中都发生了变化，后续阶段也继承了先前实现和监督结果。因此，成果应归于这套多模型协作过程。比较模型或工作流的效率，需要固定输入、任务和环境另做对照；此次停用工作流后的进展，为排查流程成本提供了线索。</p>
+<h3 id="2-5-测试工作在-135-小时中的位置"><a href="#2-5-测试工作在-135-小时中的位置" class="headerlink" title="2.5 测试工作在 135 小时中的位置"></a>2.5 测试工作在 135 小时中的位置</h3><p>按整回合的主要工作主题回看，时长分布如下。每个回合归入一个类别，合计与主会话计时一致；分类描述工作包的重心。<a href="/assets/small-export-ai-coding-practice/summary.json">统计口径与数据摘要</a> · <a href="/assets/small-export-ai-coding-practice/turns.csv">233 回合计时与分类 CSV</a></p>
+<table>
+<thead>
+<tr>
+<th>工作包主题</th>
+<th align="right">回合数</th>
+<th align="right">累计运行计时</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>设计评审与归档为主</td>
+<td align="right">60</td>
+<td align="right">10.41 小时</td>
+</tr>
+<tr>
+<td>ZCode 监督与工作流混合</td>
+<td align="right">21</td>
+<td align="right">21.16 小时</td>
+</tr>
+<tr>
+<td>产品实现与验证混合</td>
+<td align="right">103</td>
+<td align="right">79.23 小时</td>
+</tr>
+<tr>
+<td>测试与验证主题</td>
+<td align="right">49</td>
+<td align="right">24.35 小时</td>
+</tr>
+</tbody></table>
+<p><strong>24.35 小时是测试与验证主题工作包的时长。</strong> 其中还包括构建、环境排障和记录整理；测试活动也分布在其余类别中。测试编写、测试运行及失败定位各自占用的准确时长，需通过活动开始和结束记录进一步区分。现有分类适合定位流程改进点，纯测试工时及其上下界仍待细分统计。</p>
+<p>主会话另记录了 60 次子 agent 创建调用，其中 54 次返回创建成功，6 次因并发上限失败。这提供了已有委派的规模；其对目标保持和开发效率的效果，需要结合任务边界、返回质量和验收进度评估。</p>
+<h2 id="3-哪里可以做得更好"><a href="#3-哪里可以做得更好" class="headerlink" title="3 哪里可以做得更好"></a>3 哪里可以做得更好</h2><h3 id="3-1-首先解决流程本身制造的返工"><a href="#3-1-首先解决流程本身制造的返工" class="headerlink" title="3.1 首先解决流程本身制造的返工"></a>3.1 首先解决流程本身制造的返工</h3><p>9 月 24 日 R03 ProviderV2 的 AR 工作流快照记录了 <strong>25 次门禁 FAIL</strong>，分布在 v2–v6 的多轮尝试中。主要问题包括实现树与 QEMU 构建树错绑、格式工具路径错误、测试检查未扣除旧基线，以及重跑覆盖已经签名的报告。还有一些问题在门禁 PASS 后才被发现：例如质量检查读错源码根、复用空报告，或已签设计中的回滚语义错误。</p>
+<p>这 25 次门禁失败同时涉及产品、流程适配和验证工具。先区分失败来源，再把修复落实到对应对象：</p>
+<ul>
+<li>开始实施前一次性锁定源码树、构建树、产品配置、工具绝对路径和关键产物；先用一个最小真实客体用例验证整条工具链。</li>
+<li>检查新增问题时使用冻结基线，避免把既有代码当作本次引入问题；要求静态检查的输入非空、覆盖真实变更和实际编译单元。</li>
+<li>每次验证使用不可覆盖的运行目录；报告包含源码、配置、产物及客体加载库的哈希，重跑追加新记录。</li>
+<li>同类环境或门禁错误重复出现时，先修复公共工具，再继续产品功能，避免用更多回合反复穿过同一个缺陷。</li>
+</ul>
+<p>工作流的价值应体现在这些可执行约束上：检查真实输入，发现实际问题，并产出与当前版本相符的证据。</p>
+<h3 id="3-2-将含糊的需求修改落实为明确的变更范围"><a href="#3-2-将含糊的需求修改落实为明确的变更范围" class="headerlink" title="3.2 将含糊的需求修改落实为明确的变更范围"></a>3.2 将含糊的需求修改落实为明确的变更范围</h3><p>超时门限是本次最清楚的案例。10 月 1 日的简短输入要求“v2.6 修正到 5000&#x2F;10000ms”；随后实现和文档把主队列与生命周期都统一为 5&#x2F;10 秒。10 月 4 日人工明确：进程内检测默认 3&#x2F;6 秒，只有生命周期为 5&#x2F;10 秒。两套语义的边界最终才被重新拆开。</p>
+<p>代码默认值在 10 月 3 日 13:41 修改，规格正文在当天 21:50 明确同步，间隔约 8 小时 9 分钟。期间已经取得的 5&#x2F;10 秒队列测试只能保留为历史证据。这说明，即使测试与代码相互一致，也可能仍没有验证用户真正想要的规则。</p>
+<p>更好的做法是在改动前生成一张简短差异表：<strong>修改哪个检测对象、旧值、新值、计时起点、可配置范围、哪些已有测试失效</strong>。若一句修改指令会扩展到另一个监控对象，应由 AI 主动指出歧义并取得范围确认。确认对象是这张具体差异表，无需人工重新审批所有常规开发步骤。</p>
+<h3 id="3-3-尽早复用现有机制并控制架构扩张"><a href="#3-3-尽早复用现有机制并控制架构扩张" class="headerlink" title="3.3 尽早复用现有机制并控制架构扩张"></a>3.3 尽早复用现有机制并控制架构扩张</h3><p>后续人工评审明确要求：日志经 faultloggerd 创建和完成；事件使用 HiSysEvent 与 LOG_PATH；不新增 PERSISTED、EVENT_ID、REVISION、COMMIT_SHA256 等事件字段；配额复用现有管理代码。当前方案因此不再依赖原 P09 的独立事务配额和旧 Importer 路线。</p>
+<p>新增协议的价值，应由需求缺口和维护成本共同决定。在进入大规模跨仓实施前，AI 应先比较“现有机制能够覆盖什么、缺少的最小能力是什么、扩展协议会增加哪些维护成本”，把新增组件的理由交给架构负责人审视。复杂存储、跨进程协议、权限和恢复语义尤其适合在这个时间点介入。</p>
+<h3 id="3-4-更早把局部通过收敛成一个完整候选产品"><a href="#3-4-更早把局部通过收敛成一个完整候选产品" class="headerlink" title="3.4 更早把局部通过收敛成一个完整候选产品"></a>3.4 更早把局部通过收敛成一个完整候选产品</h3><p>多个阶段已经产生真实 PASS，但证据绑定的源码、配置、内核和镜像并不完全相同。例如，真实 JS 认证链验证曾因 Ace 与 Ability 的窗口宏不一致而缺少 SetUIContent；只重启重要 foundation 服务又触发 init 的整机重启策略。配套重编和冷启动后才获得可解释的结果。</p>
+<p>应保留快速组件测试，同时固定一个可启动的候选产品清单。每完成一条业务链，就把它接入该候选上的端到端回归。用“同一候选已经闭合哪些功能项”安排后续工作，避免不断新增局部证据包，却很晚才发现组合构建、安装或运行缺口。</p>
+<p>现行设计正文只保留当前合同及状态摘要，历史证据继续链接到附件；状态表至少绑定需求版本、源码清单、镜像哈希、用例、结果和遗留问题。这样既符合“只维护一份设计”的要求，又能降低长会话重新寻找有效规则的成本。</p>
+<p>进一步把规格、代码和验证结果建立对应关系。门限、接口、编译宏或部署库发生变化时，将受影响的验收项标为“待复验”，保留旧结果及其版本。先运行受影响的定向测试，再完成候选集成回归。这样既能发现过期的 PASS，也能减少重复执行无关测试。</p>
+<h3 id="3-5-让验收能够推翻实现者的假设"><a href="#3-5-让验收能够推翻实现者的假设" class="headerlink" title="3.5 让验收能够推翻实现者的假设"></a>3.5 让验收能够推翻实现者的假设</h3><p>本次记录中存在有价值的反例：5.10 冷启动 EAGAIN，线程都采到了但 <code>complete=false</code>，Native 深栈达到 64 帧上限，以及 BBox 采到栈却未达到预期调用链。另有测试观察器写错函数名、硬编码线程数或误要求 SyntaxError 携带执行帧的情况。产品实现与测试工具都需要被检验，红灯也需要先分类。</p>
+<p>改进重点是提前固定有判别力的验收样例：错误身份必须拒绝，catch 的报告数为零，文件成功完成后才允许发布成功路径，FULL 按自身期限触发，缺少关联证据的 JS 归属保持未知。测试从需求推导输入和预期，优先覆盖身份、时序、恢复、裁剪等高风险边界。修改预期时说明是修正测试错误还是改变产品标准，并保留原始失败。</p>
+<p>关键观察器还应通过已知成功和已知失败的样本校验，例如缺失附件、错误来源身份和重复事件。测试子 agent 独立阅读规格后设计这些判据，再与实现核对差异。这样可以同时检查产品行为和测试工具的识别能力。</p>
+<h3 id="3-6-让主-agent-持续对最终目标负责"><a href="#3-6-让主-agent-持续对最终目标负责" class="headerlink" title="3.6 让主 agent 持续对最终目标负责"></a>3.6 让主 agent 持续对最终目标负责</h3><p>10 月 2 日第 150 回合原计划推进 HiSysEvent&#x2F;LOG_PATH 接入，随后转向重复核对超时文档；第 151 回合确认上一轮未推进源码实现。第 160 回合原计划验证 JS 单功能裁剪，也转向相同核对，第 161 回合再次恢复开发目标。这些记录显示了任务执行方向的偏移，值得把目标保持作为独立的改进项。具体成因还需结合任务恢复和历史指令分析。<a href="/assets/small-export-ai-coding-practice/summary.json">统计口径与数据摘要</a></p>
+<p><strong>测试子 agent 的首要用途是隔离复杂排障的上下文，让主 agent 保持交付目标。</strong> 即使串行执行，这种分工也有价值。主 agent 维护一份简短的现行任务表：最终交付条件、当前验收项、已完成证据、阻塞依赖和下一步。每轮选定一项能推进验收的工作，结束时记录新增实现、证据或决策。已完成事项在需求、代码、环境发生相关变化，或出现新反例时重新打开。</p>
+<p>当一轮结束后任务表没有变化，主 agent 应检查工作是否重复、验证是否真正启动、依赖是否仍成立，并据此调整下一步。复杂日志和排障分支留在子任务，影响正确性与交付的结论进入主流程。最终集成和完成判断由主 agent 负责。</p>
+<p>Anthropic 在 2025 年 9 月 29 日的上下文工程文章中提出了相同的职责划分：主 agent 保持高层计划，子 agent 使用独立上下文深入处理局部任务，再返回浓缩结果。这支持隔离设计；small-export 的实际收益可用下一轮的验收进度和重复工作量衡量。<a target="_blank" rel="noopener" href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">上下文工程实践</a></p>
+<h3 id="3-7-为测试子-agent-规定交接和停止条件"><a href="#3-7-为测试子-agent-规定交接和停止条件" class="headerlink" title="3.7 为测试子 agent 规定交接和停止条件"></a>3.7 为测试子 agent 规定交接和停止条件</h3><p>优先委派需要多轮排障、读取大量日志或搭建独立环境的测试。简短、稳定的定向检查可由主 agent 直接运行。任务粒度以一条业务链或一组相关验收条件为宜，让每次委派都产生可用于决策的结果。</p>
+<table>
+<thead>
+<tr>
+<th>交接内容</th>
+<th>small-export 中的具体要求</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>目标与判据</td>
+<td>对应哪条现行需求；例如真实 JS 异常生成一份报告和一次 LOG_PATH 事件，catch 场景报告数为零</td>
+</tr>
+<tr>
+<td>版本与环境</td>
+<td>固定仓库提交、产品配置、镜像和实际加载库；使用指定的 5.10 或 6.6 QEMU</td>
+</tr>
+<tr>
+<td>上下文与修改范围</td>
+<td>提供规格、接口、运行方法和必要证据；详细实现推理按需读取。测试、夹具和局部环境修复在约定范围内进行，产品语义或跨仓修改返回主 agent 处理</td>
+</tr>
+<tr>
+<td>资源归属</td>
+<td>各任务独立使用构建输出、QEMU 实例、可写镜像、串口和证据目录；源码写入按目录分工或使用独立工作树</td>
+</tr>
+<tr>
+<td>停止条件</td>
+<td>每轮排障说明假设及判别方法；同类失败重复且没有新证据时，返回已知事实和阻塞。任务包约定时间或尝试预算，超出后由主 agent 决定是否继续</td>
+</tr>
+<tr>
+<td>返回结果</td>
+<td>验证版本、验收项、PASS&#x2F;FAIL&#x2F;PARTIAL&#x2F;环境阻塞、最小复现、证据路径、交付影响，以及需要主 agent 作出的决定</td>
+</tr>
+</tbody></table>
+<p>先从一个实现任务与一个测试任务开始，根据资源余量和任务独立性增加并发。等待测试时，主 agent 可以推进无依赖的工作；共享接口变更先协调，并将受影响结果标为待复验。测试返回后，主 agent 核对证据与候选版本，再更新验收状态。对于影响身份、日志完成顺序和栈归属的关键结论，应抽查原始日志或复现入口。</p>
+<p>子 agent 的独立上下文、执行环境和验收判据各有作用：前者减少主流程被细节占据，环境隔离减少互相干扰，独立判据帮助发现实现者的遗漏。三者配合后，委派才形成完整的验证闭环。</p>
+<h3 id="3-8-用验收进度和返工成本衡量效率"><a href="#3-8-用验收进度和返工成本衡量效率" class="headerlink" title="3.8 用验收进度和返工成本衡量效率"></a>3.8 用验收进度和返工成本衡量效率</h3><p>后续计时以具体功能为单位，将实现、测试编写、测试运行、失败定位和人工等待分别记录；并行活动保留各自起止时间，交付周期按实际日历时间计算。重点观察三类指标：</p>
+<ul>
+<li><strong>交付进度：</strong> 固定候选上新增通过了哪些验收项，从首次输入到可复现通过用了多久；已通过项因何重新打开。</li>
+<li><strong>返工来源：</strong> 规格变化、环境故障、产品缺陷、测试错误及重复检查分别占用多少时间；统计在对应任务内发生的返工。</li>
+<li><strong>协调成本：</strong> 子 agent 交接后需要补充多少次信息，人工实际投入多少分钟，等待哪些决定，以及这些等待是否阻塞关键路径。</li>
+</ul>
+<p>可在后续相近的业务链上比较主流程直接测试与测试子 agent 分工，记录任务规模、模型、环境差异，并同时观察回归质量和交付周期。这能帮助判断委派适用的任务粒度。独立性较低的任务若产生较多协调成本，就合并执行。</p>
+<p>R03 历史报告还记录了一个 ZCode 时间窗内 947 次完成请求，约 4.83 亿输入 token，其中绝大多数为缓存读取。这反映该时间窗的处理量，包含成功工作和返工；费用需要结合计费规则核算，返工成本需要关联具体活动。主会话与 ZCode 用量分别记账。</p>
+<h2 id="4-哪些地方需要更多人工介入"><a href="#4-哪些地方需要更多人工介入" class="headerlink" title="4 哪些地方需要更多人工介入"></a>4 哪些地方需要更多人工介入</h2><p>更多人工价值应集中在影响方向和判据的位置。常规编译修复、工具操作和材料同步可以继续由 AI 完成。</p>
+<table>
+<thead>
+<tr>
+<th>介入位置</th>
+<th>人工需要决定或核查什么</th>
+<th>本次对应案例</th>
+<th>AI 应先准备什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>产品与验收范围</td>
+<td>本轮交付到哪一层，哪些项暂停、哪些仍是必需功能</td>
+<td>真机改 QEMU；非功能暂停；功能未完成仍保留 INCOMPLETE</td>
+<td>范围差异、受影响用例和明确交付条件</td>
+</tr>
+<tr>
+<td>跨模块语义变更</td>
+<td>简短指令是否适用于另一个监控对象或协议</td>
+<td>主队列 3&#x2F;6 秒与生命周期 5&#x2F;10 秒被统一后再拆开</td>
+<td>旧值、新值、对象、起点及回归影响表</td>
+</tr>
+<tr>
+<td>架构成本</td>
+<td>是否新增组件、协议、线程、配额或存储状态</td>
+<td>旧事务&#x2F;Importer 与现行 faultloggerd + HiSysEvent 方案收敛</td>
+<td>现有能力证据、最小改动方案和维护成本比较</td>
+</tr>
+<tr>
+<td>诊断正确性</td>
+<td>采集结果能否支持预期结论，PARTIAL 是否可接受</td>
+<td>Native&#x2F;Jerry 混排、BBox 调用链、线程覆盖与完整性差异</td>
+<td>正例、反例、原始日志及未证明部分</td>
+</tr>
+<tr>
+<td>失败处理策略</td>
+<td>哪些未通过项继续修，哪些降级、延期或改变需求</td>
+<td>用户要求未通过用例由其判断后再继续</td>
+<td>重现条件、影响、修复代价与可选处置，不只给 FAIL 标签</td>
+</tr>
+<tr>
+<td>最终交付签收</td>
+<td>同一版本是否满足全部当前功能条件</td>
+<td>多仓增量与局部 QEMU PASS 尚未形成整体通过</td>
+<td>固定源码和镜像清单、完整功能矩阵、遗留项及回退证据</td>
+</tr>
+</tbody></table>
+<p>人工介入时，AI 应给出一个可直接判断的方案：需要决定的事项、推荐选项、主要代价、受影响验收项，以及等待期间可继续的任务。例如，对六项待判断 FAIL 分别标明依赖，仅暂停依赖该决定的分支；独立的构建修复、候选整理和其他验收继续推进。这样可将人工注意力集中到实际决策上。</p>
+<p>网络、模型服务或 GUI 工具不可用时，用户曾恢复环境并手工切换模型。这类时间归入运行环境支持。能够由代理通过已授权标准接口解决的问题，应补入可复用工具；账号状态、外部设备或需要额外授权的设置由人工处理。</p>
+<h2 id="5-对后续-AI-Coding-实践的启示"><a href="#5-对后续-AI-Coding-实践的启示" class="headerlink" title="5 对后续 AI Coding 实践的启示"></a>5 对后续 AI Coding 实践的启示</h2><p>在 small-export 中，AI 已承担大量过去需要工程师逐步执行的工作：查源码、拆实现、改跨仓代码、解释编译错误、搭建测试、读取真实客体日志并整理交付。后续模型升级时，可以尝试减少围绕这些操作的详细提示和人工逐步监督，再用同一组回归用例判断这些流程是否仍有必要。</p>
+<p>仍需保留的是清楚的目标、可执行的验收和可追溯的环境。这些工作本身也可以由 AI 协助编写和检查，但用户目标、真实运行结果和发布责任需要外部依据。一个代理同时提出设计、实现并生成测试时，仍应允许独立用例和人工领域判断推翻它的结论。</p>
+<p>下一轮按以下顺序实施改进：</p>
+<ol>
+<li><strong>固定目标并维护验收进度。</strong> 用一页说明确认范围、关键不变量、当前候选和剩余功能项；每轮工作关联到其中一项，已完成事项按变更或新证据重开。</li>
+<li><strong>用一条真实业务链试行测试委派。</strong> 主 agent 推进实现和集成，子 agent 按固定版本独立验证，从故障触发跟踪到文件、事件和读取。按返回证据更新整体状态。</li>
+<li><strong>固化环境并复用有效结果。</strong> 消除基线错绑、输出树污染、宏不一致和证据覆盖；规格与代码变化时标出待复验项，再扩展 Native、JS、Freeze 及失败分支。</li>
+<li><strong>定期按结果调整分工。</strong> 对照新增通过项、重复工作、返工时间和人工投入，调整委派粒度与并发；把反复出现的公共问题沉淀为工具修复。</li>
+</ol>
+<p>以本次归档状态作为后续开发起点，应将六项待判断 FAIL 整理为带依赖和处置选项的决策清单，同时推进独立的构建冲突修复与候选整理。依赖条件满足后，在固定候选上完成现行门限及剩余功能验收；非功能测试按既定暂停范围管理。交付完成以该候选的功能矩阵通过为依据。</p>
+<h2 id="附录-数据来源与统计口径"><a href="#附录-数据来源与统计口径" class="headerlink" title="附录 数据来源与统计口径"></a>附录 数据来源与统计口径</h2><p>本文依据项目需求、构建记录、QEMU 故障日志和主会话运行事件进行复盘。功能结果采用 2026 年 10 月 4 日的归档状态，后续建议用于下一轮流程改进。</p>
+<ul>
+<li><strong>计时范围：</strong> 从 9 月 23 日主会话开始，到 10 月 4 日统计终点；233 个回合按开始、完成或中止事件配对，累计 486,559,101 毫秒。回合时间区间互不重叠，并行子 agent 和 ZCode 时长不额外累加。</li>
+<li><strong>人工输入：</strong> 排除环境、插件和自动目标上下文后，保留 51 条明确人工文字输入。人工介入目的与实际投入分钟数需另行记录。</li>
+<li><strong>分类方法：</strong> 按整回合的主要工作主题分类。测试与验证主题包含环境和构建工作，其他类别也包含测试活动；分类用于观察工作重心。</li>
+<li><strong>结果依据：</strong> 功能效果以相应版本的验证材料为准。本次复盘使用已有运行记录，新的产品构建与 QEMU 验收属于后续开发工作。</li>
+<li><strong>结论范围：</strong> 案例支持对实际产出、失败现象和改进机会的分析；节省工时比例、模型差异和流程因果效果需进一步对照。</li>
+</ul>
+<p>可下载<a href="/assets/small-export-ai-coding-practice/summary.json">统计摘要 JSON</a>与<a href="/assets/small-export-ai-coding-practice/turns.csv">233 回合计时及分类 CSV</a>，复核总时长、阶段划分和工作包统计。原始会话与工程日志保留在项目归档，附表提供正文所用统计及过程观察摘要。</p>
+</section>
+    <footer class="post-footer">
+      <section class="author"><h4>MapleStory.zeng</h4><p>A fresh Programer, now working on Android Frameworks.</p></section>
+      <section class="share"><h4>Share this post</h4>
+        <a class="icon-twitter" target="_blank" rel="noopener" href="https://twitter.com/share?url=https%3A%2F%2Fmaplestorys.github.io%2F2026%2F10%2F08%2Fsmall-export-ai-coding-practice%2F"><span class="hidden">Twitter</span></a>
+        <a class="icon-facebook" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fmaplestorys.github.io%2F2026%2F10%2F08%2Fsmall-export-ai-coding-practice%2F"><span class="hidden">Facebook</span></a>
+      </section>
+    </footer>
+  </article>
+  <nav class="pagination" role="pagination">
+    
+    <span class="page-number">•</span>
+    <a class="older-posts" href="/2026/09/27/site-format-test-2026-09-27/">站点格式测试｜2026-09-27 →</a>
+  </nav>
+  <div id="comment" class="comments-area"><h1 class="title"><a href="#disqus_comments" name="disqus_comments">Comments</a></h1></div>
+</main>
+
+  <footer class="site-footer"><div class="inner">
+    <section class="copyright">All content copyright <a href="/">MapleStory</a> &copy; 2014 &bull; All rights reserved.</section>
+    <section class="poweredby">Proudly published with <a class="icon-ghost" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a></section>
+  </div></footer>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="/js/jquery.fitvids.js"></script>
+  <script src="/js/index.js"></script>
+</body>
+</html>
