@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>LPC 2026 的 SRE 与可观测性：从采集更多数据，走向可验证的诊断证据 | MapleStory</title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/css/screen.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400">
+</head>
+<body class="post-template">
+  <header class="site-head" style="background-image: url(/img/banner.jpg)">
+    <div class="vertical"><div class="site-head-content inner">
+      <a class="blog-logo" href="/"><img src="https://blog.ghost.org/content/images/2013/Nov/bloglogo_1-1.png" alt="Blog Logo"></a>
+      <h1 class="blog-title">MapleStory</h1>
+      <h2 class="blog-description"></h2>
+    </div></div>
+  </header>
+  <main class="content" role="main">
+  <article class="post">
+    <span class="post-meta"><time datetime="2026-10-08T04:00:00.000Z" itemprop="datePublished">2026-10-08</time></span>
+    <h1 class="post-title">LPC 2026 的 SRE 与可观测性：从采集更多数据，走向可验证的诊断证据</h1>
+    <section class="post-content"><p>Linux Plumbers Conference 2026 的会议日期为 10 月 5—7 日。本次值得 SRE 关注的内容不只在一个分会场：系统监控、Tracing、Android、eBPF、AI 辅助开发、实时系统和 Live Patching 都讨论了相关问题。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/">会议官网</a></p>
+<p>本文的判断是：<strong>这些议题最值得放在一起看的，不是“给现有日志系统接一个 LLM”，而是怎样在有限的观测预算内保留足够证据，把用户症状连接到系统行为，再把诊断结论交给可验证、可控制的修复流程。</strong> 这是一种跨议题的综合解读，不是大会已经达成的统一规范。</p>
+<blockquote>
+<p><strong>材料与证据范围</strong>：本文依据 2026-10-08 核对的官方议程与议题摘要。文中的实验数字属于作者报告，方案按构想、开发中或已实现分别说明；现场录像与 PDF 正文留待后续深入阅读。排期采用官方议题页与 session 议程。BPF 快照和腾讯 Agentic Network Observability 当前仍显示未排期。</p>
+</blockquote>
+<h2 id="一、议题地图：22-项内容，六条主线"><a href="#一、议题地图：22-项内容，六条主线" class="headerlink" title="一、议题地图：22 项内容，六条主线"></a>一、议题地图：22 项内容，六条主线</h2><p>以下时间均为会议当地时间 <strong>Europe&#x2F;Prague</strong>，表示官方排期，不表示本文已核验现场是否完整执行或录像是否可用。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/262/">系统监控议程</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/251/">Tracing 议程</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/253/">AI 辅助开发议程</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/258/">Live Patching 议程</a>与<a target="_blank" rel="noopener" href="https://lpc.events/event/20/timetable/?view=indico_weeks_view">总日程</a>用于交叉核对。</p>
+<table>
+<thead>
+<tr>
+<th>日期、时间</th>
+<th>议题／讲者</th>
+<th>与 SRE 相关的核心问题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>10-05 10:00</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2450/">Performance Tools and Prompts — Brendan Gregg</a></td>
+<td>诊断经验能否成为可维护的 prompt、skill 和 agent？</td>
+</tr>
+<tr>
+<td>10-05 10:15</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2565/">Android 内核锁竞争与掉帧 — 小米团队</a></td>
+<td>如何把内核等待连接到用户可见的体验损失？</td>
+</tr>
+<tr>
+<td>10-05 10:20</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2576/">统一采集内核故障报告 — John Harrison</a></td>
+<td>如何及时保留跨日志、跨子系统的同一次启动时间线？</td>
+</tr>
+<tr>
+<td>10-05 10:35</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2550/">What Bugs Matter? — Yuan Tan</a></td>
+<td>如何把大量报告变成值得处理、可复现的问题？</td>
+</tr>
+<tr>
+<td>10-05 10:55</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2547/">Detecting Unhealthy Kernels at Scale — Sam Crossley</a></td>
+<td>不同发布阶段、机器和负载之间，怎样比较内核健康度？</td>
+</tr>
+<tr>
+<td>10-05 11:00</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2564/">Wattson CPU 功耗回归测试 — William McVicker</a></td>
+<td>怎样把 trace 和功耗估计用于内核回归检测？</td>
+</tr>
+<tr>
+<td>10-05 11:15</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2548/">从未知模式发现问题 — David Dai、Shakeel Butt</a></td>
+<td>持锁者不能运行时，如何沿等待依赖定位问题？</td>
+</tr>
+<tr>
+<td>10-05 12:00</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2549/">per-skb BPF metadata 与包路径追踪 — Jakub Sitnicki</a></td>
+<td>数据包经过变换后，怎样继续关联其内核路径？</td>
+</tr>
+<tr>
+<td>10-05 12:20</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2386/">CoreWeave：转储采集、去重与 AI 分析</a></td>
+<td>大内存机器怎样平衡故障证据、停机和采集成本？</td>
+</tr>
+<tr>
+<td>10-05 15:45</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2347/">实时 Linux 长期延迟监测 — Jan Altenberg</a></td>
+<td>如何用长期、可比较的测量评价实时行为？</td>
+</tr>
+<tr>
+<td>10-06 10:22</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2511/">Build ID + offset sampling — Ian Rogers</a></td>
+<td>怎样减少符号化依赖的映射事件和数据体积？</td>
+</tr>
+<tr>
+<td>10-06 11:06</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2509/">打通 perf 与 ftrace — Srinivasan、Rostedt、Shah</a></td>
+<td>怎样复用采集结果，连接统计分析和时间线分析？</td>
+</tr>
+<tr>
+<td>10-06 11:15</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2597/">Syzbot 的 AI 辅助补丁工作流 — Aleksandr Nogikh</a></td>
+<td>自动生成补丁以后，谁审核、验证和承担提交责任？</td>
+</tr>
+<tr>
+<td>10-06 12:22</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2513/">生产 RT 内核的轻量抢占／IRQ tracepoint — Wander Costa</a></td>
+<td>能否避免为少量事件启用过重的跟踪设施？</td>
+</tr>
+<tr>
+<td>10-06 12:30</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2601/">From Findings to Fixes — Yuan Tan</a></td>
+<td>如何筛除误报，并评价真实 bug 的实际影响？</td>
+</tr>
+<tr>
+<td>10-06 12:44</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2512/">Tracing 中的栈记录 — Steven Rostedt</a></td>
+<td>如何减少重复栈，延长固定缓冲区的有效历史？</td>
+</tr>
+<tr>
+<td>10-06 13:00</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2598/">drgn + AI 分析 RT 内核停滞 — Wander Costa</a></td>
+<td>如何让模型通过结构化调试工具获取证据？</td>
+</tr>
+<tr>
+<td>10-06 13:06</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2515/">DEPT 依赖跟踪 — Byungchul Park、Yunseong Kim</a></td>
+<td>如何覆盖不止互斥锁的等待关系，并控制误报？</td>
+</tr>
+<tr>
+<td>10-06 18:00</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2446/">BPF 可插拔运行时验证 — Gabriele Monaco</a></td>
+<td>怎样部署面向特定领域的确定性在线 monitor？</td>
+</tr>
+<tr>
+<td>10-07 15:45</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2523/">Live Patching 与生产观测共存</a></td>
+<td>观测探针与热补丁冲突时，如何明确报告并控制风险？</td>
+</tr>
+<tr>
+<td>未排期</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2622/">BPF-based live snapshots — Imran Khan</a></td>
+<td>能否用有界遍历低扰动地获取在线内核状态？</td>
+</tr>
+<tr>
+<td>未排期</td>
+<td><a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2451/">Agentic Network Observability — Jason Xing 等</a></td>
+<td>在引入 AI 前，数据质量、框架开销和隔离应满足什么条件？</td>
+</tr>
+</tbody></table>
+<p>这份地图是按 SRE 关联性筛选的专题索引，不是 LPC 全部相关议题的穷尽清单。</p>
+<h2 id="二、主线一：健康度不是“机器没崩”，而是能解释用户和发布结果"><a href="#二、主线一：健康度不是“机器没崩”，而是能解释用户和发布结果" class="headerlink" title="二、主线一：健康度不是“机器没崩”，而是能解释用户和发布结果"></a>二、主线一：健康度不是“机器没崩”，而是能解释用户和发布结果</h2><h3 id="2-1-从单点阈值，转向跨发布阶段的可比较性"><a href="#2-1-从单点阈值，转向跨发布阶段的可比较性" class="headerlink" title="2.1 从单点阈值，转向跨发布阶段的可比较性"></a>2.1 从单点阈值，转向跨发布阶段的可比较性</h3><p>Meta 的议题把检测、关联和深入定位放进统一的 telemetry 工作流，并强调不同内核发布阶段之间，机器数量、环境及负载差异会干扰健康度比较。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/262/">官方 session 摘要</a></p>
+<p><strong>对 SRE 的启示</strong>：判断版本 A 相对版本 B 是否回归，需要先统一比较条件。实践中应先明确比较人群与条件，例如硬件类型、负载、内核配置、发布批次，再讨论差异。这是本文据议题提出的评估建议；Meta 使用的具体统计模型与上线决策自动化范围仍需详细材料说明。</p>
+<h3 id="2-2-内核事件必须连接用户可见结果"><a href="#2-2-内核事件必须连接用户可见结果" class="headerlink" title="2.2 内核事件必须连接用户可见结果"></a>2.2 内核事件必须连接用户可见结果</h3><p>小米团队在 Pixel 6、6.18.0-mainline、90 Hz 的指定环境中分析了 40 个 Android 应用，把 <code>lock_contention</code> 与 Perfetto FrameTimeline 关联。作者报告：约 14% 的掉帧可归因于内核锁竞争，且五类热点占锁相关掉帧的 90% 以上，涉及 GPU 驱动、<code>mmap_lock</code>、ZRAM、Binder 分配器和 cgroup 锁。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2565/">官方摘要</a></p>
+<p>这里最值得迁移的方法是：<strong>从用户症状窗口反查关键线程的等待，再定位依赖对象，而不是只统计某类内核事件发生了多少次。</strong> 但上述比例属于作者报告的特定实验，不应写成所有 Android 设备的普遍结论；事件在时间上重合后，还需通过干预或复现验证因果关系。</p>
+<p>Wattson 的议题则把 Perfetto trace 与按 SoC 建模的 CPU 功耗估计用于内核回归测试。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2564/">官方摘要</a>它补充了一个容易被忽略的质量维度：响应更快的修改也可能增加功耗。这里的功耗是模型估计，应通过硬件仪器测量校准；GPU、TPU&#x2F;NPU 属于作者提出的扩展方向。</p>
+<h3 id="2-3-长时间测量仍不可替代"><a href="#2-3-长时间测量仍不可替代" class="headerlink" title="2.3 长时间测量仍不可替代"></a>2.3 长时间测量仍不可替代</h3><p>OSADL QA Farm 的报告强调长期、跨系统可比较的实时延迟测量，并讨论测试场景随 Linux 和硬件演化而调整。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2347/">官方摘要</a></p>
+<p><strong>本文判断</strong>：这与“模型更强，所以过程数据可以无限削减”的想法构成重要制衡。模型可以帮助解释罕见延迟，但测量窗口、测试负载、硬件差异及尾部分布仍需真实采集。评价长尾风险时，应保留测量时长与负载覆盖范围。</p>
+<h2 id="三、主线二：观测预算必须同时计算采集、关联、保存和恢复成本"><a href="#三、主线二：观测预算必须同时计算采集、关联、保存和恢复成本" class="headerlink" title="三、主线二：观测预算必须同时计算采集、关联、保存和恢复成本"></a>三、主线二：观测预算必须同时计算采集、关联、保存和恢复成本</h2><h3 id="3-1-大型转储暴露的是诊断经济性问题"><a href="#3-1-大型转储暴露的是诊断经济性问题" class="headerlink" title="3.1 大型转储暴露的是诊断经济性问题"></a>3.1 大型转储暴露的是诊断经济性问题</h3><p>CoreWeave 的官方摘要描述了至少 2 TB 内存的典型机器：crash kernel 的内存预留占用客户资源，大转储处理会延长停机；批量同源故障还增加重复采集和分析负担。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2386/">官方摘要</a></p>
+<p>摘要将几种路线区分为不同状态：</p>
+<ul>
+<li><strong>开发中</strong>：采集前计算故障指纹，识别重复故障；通过 DPU 上的 drgn+sdb 经 RDMA 读取主机内存，探索带外精简转储。</li>
+<li><strong>构想</strong>：先保存故障内存并重启，再做较重的转换和过滤；或按预设数据结构直接采集精简转储。</li>
+<li><strong>作者标为已实现</strong>：将转储、匹配的调试信息、对应版本源码和调查线索放入容器供 AI 分析，并用 <code>agents.md</code> 减少无休止循环。</li>
+</ul>
+<p><strong>对 SRE 的启示</strong>：比较方案时应同时衡量停机时间、预留内存、存储和分析成本，以及去重或过滤后保留的诊断能力。上述状态来自作者摘要；DPU 方案的生产性能和通用可靠性仍需实验数据支持。</p>
+<h3 id="3-2-BPF-快照：把诊断请求变成有界采集"><a href="#3-2-BPF-快照：把诊断请求变成有界采集" class="headerlink" title="3.2 BPF 快照：把诊断请求变成有界采集"></a>3.2 BPF 快照：把诊断请求变成有界采集</h3><p>BPF 快照提案以在线内核中的任务、D-state 栈、runqueue、reclaim 和 I&#x2F;O 状态为对象，探索经过预先约束的内核内遍历与紧凑输出。作者同时把 iterator、helper&#x2F;kfunc、verifier、输出缓冲和不停机情况下的一致性保证列为讨论问题。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2622/">官方提案</a></p>
+<p>它提供的是一个值得试验的设计点，而不是“替代所有 tracing”的成品结论。本次检索中该议题仍未排期，也未确认可读的公开性能测量正文。</p>
+<p><strong>迁移建议</strong>：为每种采集器定义最大对象数、耗时、输出字节数及失败行为。达到限额时应报告 <code>truncated</code>、丢弃计数和有效时间区间，而不是交给分析器一份看起来完整、实际缺项的快照。</p>
+<h3 id="3-3-小记录不等于小系统成本"><a href="#3-3-小记录不等于小系统成本" class="headerlink" title="3.3 小记录不等于小系统成本"></a>3.3 小记录不等于小系统成本</h3><p><code>Build ID + offset sampling</code> 比较了直接记录文件身份和偏移，与记录虚拟地址后再依赖映射事件完成符号化的取舍；目标包括讨论混合采样方式。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2511/">官方摘要</a></p>
+<p>栈记录议题则讨论重复栈挤占缓冲区、栈合并及用户态栈的文件关联问题。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2512/">官方摘要</a>两者共同提醒我们：压缩单条事件，不一定能减少整套证据系统的开销；关联元数据、映射生命周期和重复记录同样占预算。</p>
+<p><strong>本文建议的度量口径</strong> 是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">观测总成本</span><br><span class="line">= 热路径记录</span><br><span class="line">+ 对象身份与关联维护</span><br><span class="line">+ 栈与符号化元数据</span><br><span class="line">+ 缓冲和持久化</span><br><span class="line">+ 故障时采集扰动</span><br><span class="line">+ 离线分析与误判成本</span><br></pre></td></tr></table></figure>
+
+<p>这不是会议提出的统一公式，而是一个便于比较方案的工程记账方式。</p>
+<h3 id="3-4-低扰动工具要能进入真正的故障现场"><a href="#3-4-低扰动工具要能进入真正的故障现场" class="headerlink" title="3.4 低扰动工具要能进入真正的故障现场"></a>3.4 低扰动工具要能进入真正的故障现场</h3><p>生产 RT tracepoint 议题提出将抢占／IRQ 开关事件从较重的设施中拆开，通过独立配置与 static key 控制启用。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2513/">官方摘要</a>perf&#x2F;ftrace 互通议题则尝试复用同一份采集数据，减少为统计分析和时间线分析重复录制。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2509/">官方摘要</a></p>
+<p>这些工作的共同价值是降低“只能在实验室开启”的门槛。但补丁提案、已排期演讲、内核已合入和发行版可用，是四个不同状态，应分别记录；实际开销需要在目标负载下测量。</p>
+<h2 id="四、主线三：比日志数量更重要的是关联键、生命周期和等待关系"><a href="#四、主线三：比日志数量更重要的是关联键、生命周期和等待关系" class="headerlink" title="四、主线三：比日志数量更重要的是关联键、生命周期和等待关系"></a>四、主线三：比日志数量更重要的是关联键、生命周期和等待关系</h2><h3 id="4-1-故障报告应有同一次启动的时间线"><a href="#4-1-故障报告应有同一次启动的时间线" class="headerlink" title="4.1 故障报告应有同一次启动的时间线"></a>4.1 故障报告应有同一次启动的时间线</h3><p>统一内核故障报告提案关注 <code>dmesg</code>、syslog、devcoredump 和 sysfs 信息分散、采集延迟及环形缓冲区覆盖。它建议在问题发生时自动采集，并在服务端按 session／boot 关联、匹配已知问题和通知相关维护者；非致命问题可能在稍后级联成更严重故障。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2576/">官方摘要</a></p>
+<p><strong>对长时间故障的启示</strong>：最终 crash log 应与先前关键事件配合，借助时间和身份信息连接故障过程。实际落地还需明确脱敏、用户授权、保留期限，以及跨设备标识是否可被关联；这属于本文补充的部署要求。</p>
+<h3 id="4-2-per-skb-metadata：身份应跟随被观测对象"><a href="#4-2-per-skb-metadata：身份应跟随被观测对象" class="headerlink" title="4.2 per-skb metadata：身份应跟随被观测对象"></a>4.2 per-skb metadata：身份应跟随被观测对象</h3><p>Cloudflare 的包路径追踪尝试在 netns、隧道、IPsec 和过滤规则之间保留同一数据包的路径。摘要指出，用外部 BPF map 保存旁路状态需要维护释放清理，而这可能使只关心少量包的采样器仍承担大量包的生命周期事件成本；其上游探索是让 metadata 随 <code>sk_buff</code> 生命周期存在。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2549/">官方摘要</a></p>
+<p>这比“给每条日志加一个 ID”更深一层：<strong>身份的创建、传播、变换和销毁本身就是观测机制的一部分。</strong></p>
+<p>映射到设备端，可以借鉴这一问题意识来设计 Binder transaction、异步任务或请求对象的关联信息。不过，复用地址、对象克隆和跨进程身份如何处理，需要根据各子系统的对象语义独立定义。</p>
+<h3 id="4-3-从锁顺序，扩展到通用等待／事件依赖"><a href="#4-3-从锁顺序，扩展到通用等待／事件依赖" class="headerlink" title="4.3 从锁顺序，扩展到通用等待／事件依赖"></a>4.3 从锁顺序，扩展到通用等待／事件依赖</h3><p>DEPT 关注等待和事件的关系，而不仅是传统锁的获取顺序，覆盖 completion、folio lock、DMA fence 等同步模式。作者把误报及子系统注解不足明确列为推进工作的难点。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2515/">官方摘要</a></p>
+<p>持锁者无法运行的 fleet 调查也说明，只看等待线程不够，还需要追踪被等待对象及其拥有者的可运行状态。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/262/">官方 session 摘要</a></p>
+<p><strong>本文判断</strong>：这支持构建可解释的等待图，但不支持把任何统计相关图都称为“因果图”。边必须有来源和语义，例如“线程 A 在等事件 E”“任务 B 负责产生 E”；缺少关联或注解时，应保留未知状态，而不是由 LLM 补成确定事实。</p>
+<h2 id="五、主线四：AI-改变诊断的入口，但不替代测量与调试工具"><a href="#五、主线四：AI-改变诊断的入口，但不替代测量与调试工具" class="headerlink" title="五、主线四：AI 改变诊断的入口，但不替代测量与调试工具"></a>五、主线四：AI 改变诊断的入口，但不替代测量与调试工具</h2><h3 id="5-1-Performance-prompts：维护的资产不再只有工具代码"><a href="#5-1-Performance-prompts：维护的资产不再只有工具代码" class="headerlink" title="5.1 Performance prompts：维护的资产不再只有工具代码"></a>5.1 Performance prompts：维护的资产不再只有工具代码</h3><p>Brendan Gregg 的议题讨论用 prompt、skill 和 agent 组织性能分析，以及它们对 flame graph、eBPF、ftrace、PMC&#x2F;MSR 等工具的影响；还提出是否应像维护性能工具那样维护诊断提示和技能。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2450/">官方摘要</a></p>
+<p>值得借鉴的不是“自然语言取代所有命令”，而是把诊断经验写成可版本化的过程：适用问题、所需证据、可执行工具、停止条件和结论格式。<strong>这是本文的工程化建议</strong>；议题对纳入内核树提出的是讨论问题。</p>
+<h3 id="5-2-drgn-MCP：让模型按证据决定下一次查询"><a href="#5-2-drgn-MCP：让模型按证据决定下一次查询" class="headerlink" title="5.2 drgn + MCP：让模型按证据决定下一次查询"></a>5.2 drgn + MCP：让模型按证据决定下一次查询</h3><p>drgn-mcp 的摘要描述了将 drgn 调试能力暴露为结构化工具，并计划用真实 RT 内核停滞的 vmcore 演示调查。官方议题页与 session 议程均排在 10 月 6 日 13:00。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2598/">官方摘要</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/253/">更新议程</a></p>
+<p>对故障分析工具而言，较有价值的模式是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">提出根因假设</span><br><span class="line">    → 调用受控调试工具</span><br><span class="line">    → 获取任务、锁或依赖的实际状态</span><br><span class="line">    → 修正假设</span><br><span class="line">    → 列出仍缺少的证据</span><br></pre></td></tr></table></figure>
+
+<p>这条路径比只让模型阅读一段 crash 文本更容易保留证据来源。通用故障集上的诊断准确率，以及幻觉、错误符号和损坏转储等边界，需要专门评测。</p>
+<h3 id="5-3-Agentic-网络观测首先是系统工程"><a href="#5-3-Agentic-网络观测首先是系统工程" class="headerlink" title="5.3 Agentic 网络观测首先是系统工程"></a>5.3 Agentic 网络观测首先是系统工程</h3><p>腾讯的未排期提案明确把轻量透明的框架、高质量数据和强隔离环境列为引入 AI 推理前的条件。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2451/">官方提案</a></p>
+<p><strong>本文判断</strong>：底层观测系统与通用 Agent 平台在这里的交集，不是无限扩大自主性，而是让模型能够按需取证，同时不让它绕过权限、资源和执行边界。故障诊断默认只读；提高采样强度或执行修复，需要独立的控制路径。这是迁移建议，不是提案中已验证的完整产品规格。</p>
+<h2 id="六、主线五：从“发现问题”走向“可复现、值得修、有人负责”"><a href="#六、主线五：从“发现问题”走向“可复现、值得修、有人负责”" class="headerlink" title="六、主线五：从“发现问题”走向“可复现、值得修、有人负责”"></a>六、主线五：从“发现问题”走向“可复现、值得修、有人负责”</h2><h3 id="6-1-报告数量不是可靠性成果"><a href="#6-1-报告数量不是可靠性成果" class="headerlink" title="6.1 报告数量不是可靠性成果"></a>6.1 报告数量不是可靠性成果</h3><p><code>What Bugs Matter?</code> 关注异构报告的归并、子系统映射、在 KASAN 内核中尝试生成并运行 reproducer，以及实际影响评估。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2550/">官方摘要</a></p>
+<p>同一作者的 <code>From Findings to Fixes</code> 进一步介绍正在开发的持续缺陷收集与验证平台，强调验证复现条件、触发权限和实际影响，再为获得运行证据的问题生成分析和候选补丁。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2601/">官方摘要</a>两场内容相关，不宜当作两份相互独立的效果验证。</p>
+<p><strong>对 SRE 的启示</strong>：报警、疑似缺陷、可复现问题、值得投入的问题和已完成修复，应是不同的状态。incident 的解决状态应以修复后的实际验证结果为依据。</p>
+<h3 id="6-2-Syzbot：自动化的是补丁迭代，不是取消责任主体"><a href="#6-2-Syzbot：自动化的是补丁迭代，不是取消责任主体" class="headerlink" title="6.2 Syzbot：自动化的是补丁迭代，不是取消责任主体"></a>6.2 Syzbot：自动化的是补丁迭代，不是取消责任主体</h3><p>Syzbot 介绍了候选补丁先进入审核列表、接收自然语言反馈或审核命令、再决定是否转向公共列表的两阶段流程。作者在摘要中将系统标为 POC，并报告截至 2026 年 9 月已有 30 个 AI 辅助补丁合入上游。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2597/">官方摘要</a></p>
+<p>这个数字属于作者的阶段性报告，本次没有逐项核对提交记录。比数字更值得学习的是责任边界：AI 可以生成、回答问题和迭代，批准进入上游的审核者仍需承担签署责任。</p>
+<p><strong>本文建议的修复状态机</strong> 是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">finding</span><br><span class="line">  → evidence collected</span><br><span class="line">  → reproduced / not reproduced / insufficient evidence</span><br><span class="line">  → impact assessed</span><br><span class="line">  → patch proposed</span><br><span class="line">  → regression checked</span><br><span class="line">  → reviewed</span><br><span class="line">  → rolled out</span><br><span class="line">  → outcome verified</span><br></pre></td></tr></table></figure>
+
+<p>其中，reproducer 与构建结果分别记录用例和配置覆盖范围；完整修复还需回归与评审，线上部署按既定授权执行。</p>
+<h2 id="七、主线六：观测系统本身也需要可预测的控制与验证"><a href="#七、主线六：观测系统本身也需要可预测的控制与验证" class="headerlink" title="七、主线六：观测系统本身也需要可预测的控制与验证"></a>七、主线六：观测系统本身也需要可预测的控制与验证</h2><h3 id="7-1-BPF-Runtime-Verification：已知规则可变成在线检查"><a href="#7-1-BPF-Runtime-Verification：已知规则可变成在线检查" class="headerlink" title="7.1 BPF Runtime Verification：已知规则可变成在线检查"></a>7.1 BPF Runtime Verification：已知规则可变成在线检查</h3><p>BPF RV 议题探索把确定性自动机等运行时验证逻辑映射到 BPF，利用 maps、ring buffer、<code>struct_ops</code> 等机制与现有 RV 框架和命令行生命周期管理整合。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2446/">官方摘要</a></p>
+<p>它提示了一条与大型模型互补的路线：规则明确、状态空间可控的问题，可以由专用 monitor 在线判断。<strong>“把经验证的故障经验进一步实现为轻量检测器”是本文的延伸，不是该演讲已经证明的自动编译能力。</strong> monitor 的误报、漏报、事件缺失和资源消耗仍需测试。</p>
+<h3 id="7-2-Livepatch-与探针冲突不是旁路小问题"><a href="#7-2-Livepatch-与探针冲突不是旁路小问题" class="headerlink" title="7.2 Livepatch 与探针冲突不是旁路小问题"></a>7.2 Livepatch 与探针冲突不是旁路小问题</h3><p>共存模型议题指出，热补丁与 ftrace、kprobe、kretprobe、BPF 等机制可能争用同一函数附近的插桩能力，造成发布阻塞或观测缺口。讨论方向包括占用报告、明确的失败原因、转换进度和负向测试。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2523/">官方摘要</a></p>
+<p>官方议题页与 session 议程均将该讨论排在 10 月 7 日 15:45。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/258/">更新议程</a></p>
+<p><strong>SRE 含义</strong>：telemetry 并非永远安全、可忽略的旁路组件。探针本身会影响权限、时序和发布行为；自动诊断系统在增加探针、增强采样或提出 livepatch 前，应该先了解已有占用和冲突。这是对系统设计的要求，不代表大会已经产出一个稳定的统一 ABI。</p>
+<h2 id="八、可以提炼出的五个设计概念"><a href="#八、可以提炼出的五个设计概念" class="headerlink" title="八、可以提炼出的五个设计概念"></a>八、可以提炼出的五个设计概念</h2><p>下面是本文依据上述议题归纳的术语，不是宣称 LPC 已形成的新标准。</p>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>具体含义</th>
+<th>关联议题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>诊断证据充分性</strong></td>
+<td>保留的信息能否区分重要候选根因，而不只是能否生成一段解释</td>
+<td>BPF 快照、内核故障时间线、drgn</td>
+</tr>
+<tr>
+<td><strong>全链路观测预算</strong></td>
+<td>同时预算热路径、身份维护、元数据、快照扰动和离线成本</td>
+<td>CoreWeave、Build ID、重复栈、轻量 RT tracepoint</td>
+</tr>
+<tr>
+<td><strong>对象生命周期关联</strong></td>
+<td>标识随对象创建、传播、变换和销毁，减少错误拼接</td>
+<td>per-skb metadata、DEPT</td>
+</tr>
+<tr>
+<td><strong>验证驱动的修复流程</strong></td>
+<td>从事实到候选根因，再经复现、测试和审核进入修复</td>
+<td>What Bugs Matter、From Findings to Fixes、Syzbot</td>
+</tr>
+<tr>
+<td><strong>观测机制的可控性</strong></td>
+<td>探针、采集器和修复动作有权限、资源、冲突及生命周期管理</td>
+<td>Livepatch 共存、BPF RV、Agentic 网络观测</td>
+</tr>
+</tbody></table>
+<p>“证据充分”总是相对于具体问题和验证方法而言。对于未知故障，合理的输出可能是多个候选根因及下一步采集请求，而不是一份高置信、单一答案。</p>
+<h2 id="九、对-Android-OpenHarmony-的迁移建议"><a href="#九、对-Android-OpenHarmony-的迁移建议" class="headerlink" title="九、对 Android &#x2F; OpenHarmony 的迁移建议"></a>九、对 Android &#x2F; OpenHarmony 的迁移建议</h2><p>本节是概念设计，不是 LPC 已经验证的手机端架构，也不假定两个系统提供完全相同的接口。</p>
+<p>建议把系统拆成一条较短的闭环：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">低成本症状与状态变化</span><br><span class="line">        ↓</span><br><span class="line">触发式、有预算的证据采集</span><br><span class="line">        ↓</span><br><span class="line">按启动／进程／任务／请求身份组织证据</span><br><span class="line">        ↓</span><br><span class="line">确定性分析器先做时间分解与依赖检查</span><br><span class="line">        ↓</span><br><span class="line">Agent 形成假设，并按需补充取证</span><br><span class="line">        ↓</span><br><span class="line">复现／故障注入／回归验证</span><br><span class="line">        ↓</span><br><span class="line">人工或既定策略批准修复</span><br><span class="line">        ↓</span><br><span class="line">沉淀故障样例、检测规则和诊断技能</span><br></pre></td></tr></table></figure>
+
+<h3 id="9-1-第一版先解决一个问题，而不是追求通用自主运维"><a href="#9-1-第一版先解决一个问题，而不是追求通用自主运维" class="headerlink" title="9.1 第一版先解决一个问题，而不是追求通用自主运维"></a>9.1 第一版先解决一个问题，而不是追求通用自主运维</h3><p>较合适的起点是 ANR &#x2F; AppFreeze 的一种等待类故障：从用户可见超时窗口出发，区分主线程正在运行、可运行但没获得 CPU、等待锁、等待 IPC 或等待 I&#x2F;O，然后沿实际接口可提供的依赖继续调查。</p>
+<p>设备端优先做便宜的检测和有界采集；较重的检索、源码分析和候选修复可以放在隔离的分析环境。不要在设备已经严重卡顿时，默认启动无界扫描或高开销采集。</p>
+<h3 id="9-2-Evidence-package-至少要说明“它没记录到什么”"><a href="#9-2-Evidence-package-至少要说明“它没记录到什么”" class="headerlink" title="9.2 Evidence package 至少要说明“它没记录到什么”"></a>9.2 Evidence package 至少要说明“它没记录到什么”</h3><p>下表是建议的数据契约，不是现成内核接口。</p>
+<table>
+<thead>
+<tr>
+<th>信息</th>
+<th>目的</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>构建身份、内核版本、必要配置和符号／BTF 对应关系</td>
+<td>避免用错误布局解释内存或栈</td>
+</tr>
+<tr>
+<td>启动标识、对象标识及生命周期／代次信息</td>
+<td>减少跨启动或地址复用导致的错误关联</td>
+</tr>
+<tr>
+<td>时间源、采集开始／结束时间、必要的时钟映射</td>
+<td>明确跨线程、跨来源的时间关系</td>
+</tr>
+<tr>
+<td>触发原因、采集器版本和有效观测窗口</td>
+<td>让证据可追溯</td>
+</tr>
+<tr>
+<td>丢弃计数、截断标志、预算耗尽、不可访问字段</td>
+<td>把信息缺口交给分析器，而不是隐藏</td>
+</tr>
+<tr>
+<td>用户症状、栈、任务状态及可获取的等待依赖</td>
+<td>把系统状态连接到具体故障</td>
+</tr>
+<tr>
+<td>事实、派生结果、模型假设分别存放</td>
+<td>避免模型推断被后续系统误当成原始证据</td>
+</tr>
+</tbody></table>
+<p>对敏感数据还应有明确的脱敏和访问范围。内存、用户标识和业务载荷的采集与上传，应遵循具体授权和数据最小化要求。</p>
+<h3 id="9-3-用故障库评价“少记录是否仍然够用”"><a href="#9-3-用故障库评价“少记录是否仍然够用”" class="headerlink" title="9.3 用故障库评价“少记录是否仍然够用”"></a>9.3 用故障库评价“少记录是否仍然够用”</h3><p>要验证稀疏记录方案，可以从已知根因、已有修复及可重复触发的故障样例开始，对比不同采集预算下的诊断结果。评价目标不只是正确答案比例，还包括错误高置信结论、需要补采的比例、未知问题的保留能力，以及设备端的 CPU、内存、延迟和电量开销。</p>
+<p>这样的试验才能回答：“减少的那些数据，是否真的没有诊断价值？”采集策略的有效性应由这套可重复试验判断。</p>
+<h2 id="十、让证据能力与验证范围对应"><a href="#十、让证据能力与验证范围对应" class="headerlink" title="十、让证据能力与验证范围对应"></a>十、让证据能力与验证范围对应</h2><p><strong>快照描述状态，回放还需要执行条件。</strong> 快照描述某段采集窗口内的状态；完整执行回放还依赖输入、调度、外部状态与非确定性来源。filtered dump、live snapshot、checkpoint 和 deterministic replay 应分别说明能力。</p>
+<p><strong>相关线索需要因果验证。</strong> 时间线和依赖关系缩小候选范围，结论还要接受反例、复现或干预检验。缺失信息保留为未知，模型推断单独标识。</p>
+<p><strong>有界采集需要实际测量。</strong> 静态开关、BPF verifier 和遍历限额提供约束，目标工作负载上的测量说明实际扰动，尤其要覆盖极端负载。</p>
+<p><strong>自动生成的结果需要独立检查。</strong> 诊断脚本、检测规则和补丁分别通过相应验证，观察、测试、修改和部署权限按职责设置。</p>
+<p>对于低开销设备观测，可以从少量长期线索、触发式状态采集、依赖关联和按需诊断逐步建立闭环。目标是<strong>预算内的诊断充分性</strong>：保留有身份、有时间、有范围、能够支持检验的证据，并持续验证观测和修复的实际效果。</p>
+<h2 id="原始材料索引与阅读顺序"><a href="#原始材料索引与阅读顺序" class="headerlink" title="原始材料索引与阅读顺序"></a>原始材料索引与阅读顺序</h2><p><a href="/assets/lpc-2026-sre-observability/references.json">官方来源清单与链接核验记录</a>涵盖本文引用页面，核验日期为 2026-10-08。</p>
+<p>优先从官方 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/262/">System Monitoring and Observability MC</a> 进入，随后结合 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/251/">Tracing MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/259/">Android MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/253/">AI 辅助开发 MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/249/">eBPF Track</a> 和 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/258/">Live Patching MC</a>。其中部分 session 列出了直播入口；是否存在可用回放及每场起止点，本次没有逐一核验。</p>
+<table>
+<thead>
+<tr>
+<th>关注目标</th>
+<th>建议优先阅读</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>低开销、长时间故障捕获</td>
+<td>BPF 快照提案、统一故障报告、轻量 RT tracepoint、长期延迟监测</td>
+</tr>
+<tr>
+<td>设备端卡顿与等待链</td>
+<td>Android 锁竞争、DEPT、per-skb 生命周期关联方法</td>
+</tr>
+<tr>
+<td>LLM 自动故障分析</td>
+<td>Performance Prompts、drgn-mcp、腾讯 Agentic 提案</td>
+</tr>
+<tr>
+<td>故障库和修复验证</td>
+<td>What Bugs Matter、From Findings to Fixes、Syzbot</td>
+</tr>
+<tr>
+<td>生产变更与采集控制</td>
+<td>Livepatch 共存、BPF RV、Wattson 功耗回归</td>
+</tr>
+</tbody></table>
+<p>截至本次核验，官方页面明确列出幻灯片附件的议题包括 Performance Prompts、What Bugs Matter、Android 锁竞争、长期延迟监测、Wattson、Syzbot、From Findings to Fixes 和 BPF RV。这些附件正文留待进一步阅读；后续深化应补充页码、实验条件、代码状态和录像时间点。</p>
+</section>
+    <footer class="post-footer">
+      <section class="author"><h4>MapleStory.zeng</h4><p>A fresh Programer, now working on Android Frameworks.</p></section>
+      <section class="share"><h4>Share this post</h4>
+        <a class="icon-twitter" target="_blank" rel="noopener" href="https://twitter.com/share?url=https%3A%2F%2Fmaplestorys.github.io%2F2026%2F10%2F08%2Flpc-2026-sre-observability%2F"><span class="hidden">Twitter</span></a>
+        <a class="icon-facebook" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fmaplestorys.github.io%2F2026%2F10%2F08%2Flpc-2026-sre-observability%2F"><span class="hidden">Facebook</span></a>
+      </section>
+    </footer>
+  </article>
+  <nav class="pagination" role="pagination">
+    
+    <span class="page-number">•</span>
+    <a class="older-posts" href="/2026/10/08/small-export-ai-coding-practice/">small-export 故障诊断 AI 开发实践总结 →</a>
+  </nav>
+  <div id="comment" class="comments-area"><h1 class="title"><a href="#disqus_comments" name="disqus_comments">Comments</a></h1></div>
+</main>
+
+  <footer class="site-footer"><div class="inner">
+    <section class="copyright">All content copyright <a href="/">MapleStory</a> &copy; 2014 &bull; All rights reserved.</section>
+    <section class="poweredby">Proudly published with <a class="icon-ghost" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a></section>
+  </div></footer>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="/js/jquery.fitvids.js"></script>
+  <script src="/js/index.js"></script>
+</body>
+</html>
