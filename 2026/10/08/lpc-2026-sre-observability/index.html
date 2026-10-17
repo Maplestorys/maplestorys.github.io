@@ -24,8 +24,10 @@
     <section class="post-content"><p>Linux Plumbers Conference 2026 的会议日期为 10 月 5—7 日。本次值得 SRE 关注的内容不只在一个分会场：系统监控、Tracing、Android、eBPF、AI 辅助开发、实时系统和 Live Patching 都讨论了相关问题。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/">会议官网</a></p>
 <p>本文的判断是：<strong>在有限的观测预算内保留足够证据，把用户症状连接到系统行为，再把诊断结论交给可验证、可控制的修复流程，是这些议题共同指向的工程目标。</strong> 这是本文对不同报告的综合解读。</p>
 <blockquote>
-<p><strong>材料与证据范围</strong>：基础篇依据 2026-10-08 核对的 22 项官方议题与摘要；2026-10-09 增补核读 5 份官方 PDF，并新增 CRIU&#x2F;RDMA 议题，共涉及 23 项内容。下表列出本轮新读材料及页码，其他议题继续按摘要的证据范围表述。PDF 上传时间和独立录像状态待官方进一步确认。</p>
+<p><strong>材料与证据范围</strong>：基础篇依据 2026-10-08 核对的 22 项官方议题与摘要；2026-10-09 核读 5 份官方 PDF，并新增 CRIU&#x2F;RDMA 议题。2026-10-17 增补 LPC 讲者的 IPADS 会后讲义，并用 AgentSight、ActPlane 论文核对实验条件。各来源的核验日期分别记录，其他议题沿用原有证据范围；报告日期与附件上传日期分别判断。</p>
 </blockquote>
+<h2 id="10-月-17-日更新：把-Agent-自身纳入观测与控制"><a href="#10-月-17-日更新：把-Agent-自身纳入观测与控制" class="headerlink" title="10 月 17 日更新：把 Agent 自身纳入观测与控制"></a>10 月 17 日更新：把 Agent 自身纳入观测与控制</h2><p>Yusheng Zheng 于 10 月 16 日在第二届 IPADS 青年学术论坛 Agent Harness 专题分享“与智能体共同演化的可扩展操作系统”。<a target="_blank" rel="noopener" href="https://www.yunwei37.com/">讲者主页</a> <strong>本次核读的 PDF 为 21 页</strong>，题名为《Co-evolving OS Infrastructure with Agents through Runtime Extensions》。<a target="_blank" rel="noopener" href="https://www.yunwei37.com/presentation/ipads-harness-2026/slides.pdf">讲义 PDF</a></p>
+<p>这份材料属于 <strong>LPC 讲者的会后相关研究</strong>。其 LPC 原议题是与 Hao Sun 合作的 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2445/">Safely Optimizing eBPF for Hardware and Workloads</a>。它将任务意图与实际 OS 行为、资源消耗、运行时约束连接起来。机制、实验条件和四个开放问题见<a href="#5-4-%E4%BC%9A%E5%90%8E%E7%9B%B8%E5%85%B3%E7%A0%94%E7%A9%B6%EF%BC%9A%E4%BB%8E%E7%94%A8-Agent-%E8%AF%8A%E6%96%AD%E7%B3%BB%E7%BB%9F%EF%BC%8C%E5%88%B0%E8%A7%82%E6%B5%8B%E5%92%8C%E7%BA%A6%E6%9D%9F-Agent">第 5.4 节</a>。</p>
 <h2 id="10-月-9-日更新：五项工程细节与-Slides-直链"><a href="#10-月-9-日更新：五项工程细节与-Slides-直链" class="headerlink" title="10 月 9 日更新：五项工程细节与 Slides 直链"></a>10 月 9 日更新：五项工程细节与 Slides 直链</h2><p>本轮更新来自新核读的材料，日期记录阅读时间。官方页面提供的信息尚不足以判定这些附件是否都在过去 24 小时上传。</p>
 <table>
 <thead>
@@ -233,6 +235,23 @@
 <p>这条路径保留每一步查询与来源。通用故障集上的准确率，以及错误符号、损坏转储等情况，仍需要独立评测。</p>
 <h3 id="5-3-Agentic-网络观测首先是系统工程"><a href="#5-3-Agentic-网络观测首先是系统工程" class="headerlink" title="5.3 Agentic 网络观测首先是系统工程"></a>5.3 Agentic 网络观测首先是系统工程</h3><p>腾讯的未排期提案明确把轻量透明的框架、高质量数据和强隔离环境列为引入 AI 推理前的条件。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2451/">官方提案</a></p>
 <p><strong>本文判断</strong>：底层观测系统与通用 Agent 平台可以结合，让模型在权限、资源和执行约束内按需取证。故障诊断默认只读；提高采样强度或执行修复，需要独立的控制路径。这些控制路径需要在迁移实现中验证。</p>
+<h3 id="5-4-会后相关研究：从用-Agent-诊断系统，到观测和约束-Agent"><a href="#5-4-会后相关研究：从用-Agent-诊断系统，到观测和约束-Agent" class="headerlink" title="5.4 会后相关研究：从用 Agent 诊断系统，到观测和约束 Agent"></a>5.4 会后相关研究：从用 Agent 诊断系统，到观测和约束 Agent</h3><p>工具调用日志通常止于调用边界，脚本、子进程及资源变化发生在更深的执行层。IPADS 讲义提出两个相互作用的方向：<strong>OS 按任务加载观测与约束，Agent 生成经过验证和评估的运行时扩展</strong>。系统证据还可反馈到技能改进，再通过留出任务检验效果。<a target="_blank" rel="noopener" href="https://www.yunwei37.com/presentation/ipads-harness-2026/slides.pdf">讲义，p.6–12、21</a></p>
+<ul>
+<li><strong>AgentSight + AgentPProf：连接意图、行为与成本。</strong> AgentSight 用 eBPF 关联 LLM 交互与进程、文件、网络行为，并保留来源和置信度；AgentPProf 按任务语义组织操作栈，跨运行聚合 Token、时间与操作，输出 pprof 兼容的性能剖析结果。<a target="_blank" rel="noopener" href="https://www.yunwei37.com/presentation/ipads-harness-2026/slides.pdf">讲义，p.12–13</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.20301">AgentPProf 论文</a></li>
+<li><strong>AgentCgroup + ActPlane：把控制落实到执行层。</strong> 前者为工具调用建立短生命周期 cgroup，实施 CPU／内存资源控制；后者用 DSL 声明跨事件规则，在进程、文件和端点间传播标签，并把违规原因返回 Agent。<a target="_blank" rel="noopener" href="https://www.yunwei37.com/presentation/ipads-harness-2026/slides.pdf">讲义，p.15–16</a></li>
+<li><strong>SchedCP + gpu_ext：让优化策略在受限扩展点迭代。</strong> Agent 提出优化目标，控制平面承担观测与执行，生成的 CPU／GPU 策略在加载前验证，运行后测量效果并保留有效策略。<a target="_blank" rel="noopener" href="https://www.yunwei37.com/presentation/ipads-harness-2026/slides.pdf">讲义，p.17–18</a></li>
+</ul>
+<p><strong>两个结果要连同实验条件阅读。</strong></p>
+<p>AgentSight 论文在三类开发工作流中报告平均 <strong>2.9% 开销</strong>，单项为 <strong>0.4%–4.9%</strong>；实验使用 Ubuntu 22.04、Linux 6.14.0、Claude Code 1.0.62／Claude 4，每类在开启和关闭观测时各运行 3 次。<a target="_blank" rel="noopener" href="https://arxiv.org/html/2508.02736v2#S5.SS1">论文 §5.1</a></p>
+<p>ActPlane 在 <strong>361 个 OpenAgentSafety 任务</strong>中，阻止了 <strong>106 个基线不安全结果中的 78 个</strong>，遗漏 28 个，同时对 <strong>16% 的基线安全任务</strong>触发干预；策略仅根据任务描述在执行前生成，并以较高权限加载。<a target="_blank" rel="noopener" href="https://arxiv.org/html/2606.25189v2#S5.SS6">论文 §5.6</a> 前者说明特定工作流下的观测成本，后者同时暴露了约束覆盖与误干预的取舍。</p>
+<p>讲义把后续问题归为四类：<a target="_blank" rel="noopener" href="https://www.yunwei37.com/presentation/ipads-harness-2026/slides.pdf">p.20</a></p>
+<ol>
+<li><strong>影响</strong>：策略对其他租户的性能、公平性和资源有何影响？</li>
+<li><strong>执行覆盖</strong>：规则是否覆盖所有相关路径，并匹配任务时序？</li>
+<li><strong>权限</strong>：下级 Agent 如何只加强、而不削弱继承的约束？</li>
+<li><strong>协调</strong>：多个 Agent 在同一扩展点加载策略时，如何组合与处理冲突？</li>
+</ol>
+<p><strong>本文建议</strong>：Agentic SRE 的首个增量应是把一次诊断任务关联到其进程树、系统副作用、资源预算与约束事件，先验证取证成本和权限边界，再试验动态策略。这与第 5.3 节的只读取证路径衔接，也为第七节的观测机制控制补上了 Agent 执行层。</p>
 <h2 id="六、主线五：从“发现问题”走向“可复现、值得修、有人负责”"><a href="#六、主线五：从“发现问题”走向“可复现、值得修、有人负责”" class="headerlink" title="六、主线五：从“发现问题”走向“可复现、值得修、有人负责”"></a>六、主线五：从“发现问题”走向“可复现、值得修、有人负责”</h2><h3 id="6-1-报告数量不是可靠性成果"><a href="#6-1-报告数量不是可靠性成果" class="headerlink" title="6.1 报告数量不是可靠性成果"></a>6.1 报告数量不是可靠性成果</h3><p><code>What Bugs Matter?</code> 关注异构报告的归并、子系统映射、在 KASAN 内核中尝试生成并运行 reproducer，以及实际影响评估。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2550/">官方摘要</a></p>
 <p>同一作者的 <code>From Findings to Fixes</code> 进一步介绍正在开发的持续缺陷收集与验证平台，强调验证复现条件、触发权限和实际影响，再为获得运行证据的问题生成分析和候选补丁。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2601/">官方摘要</a>两场内容相关，不宜当作两份相互独立的效果验证。</p>
 <p><strong>对 SRE 的启示</strong>：报警、疑似缺陷、可复现问题、值得投入的问题和已完成修复，应是不同的状态。incident 的解决状态应以修复后的实际验证结果为依据。</p>
@@ -338,7 +357,7 @@
 <p><strong>有界采集需要实际测量。</strong> 静态开关、BPF verifier 和遍历限额提供约束，目标工作负载上的测量说明实际扰动，尤其要覆盖极端负载。</p>
 <p><strong>自动生成的结果需要独立检查。</strong> 诊断脚本、检测规则和补丁分别通过相应验证，观察、测试、修改和部署权限按职责设置。</p>
 <p>对于低开销设备观测，可以从少量长期线索、触发式状态采集、依赖关联和按需诊断逐步建立闭环。目标是<strong>预算内的诊断充分性</strong>：保留有身份、有时间、有范围、能够支持检验的证据，并持续验证观测和修复的实际效果。</p>
-<h2 id="原始材料索引与阅读顺序"><a href="#原始材料索引与阅读顺序" class="headerlink" title="原始材料索引与阅读顺序"></a>原始材料索引与阅读顺序</h2><p><a href="/assets/lpc-2026-sre-observability/references.json">官方来源清单与链接核验记录</a>记录逐项核验日期、PDF 页数、关键页和文件摘要：议程基础核验为 2026-10-08，本轮 5 份 PDF 正文核验为 2026-10-09。</p>
+<h2 id="原始材料索引与阅读顺序"><a href="#原始材料索引与阅读顺序" class="headerlink" title="原始材料索引与阅读顺序"></a>原始材料索引与阅读顺序</h2><p><a href="/assets/lpc-2026-sre-observability/references.json">来源清单与链接核验记录</a>记录逐项核验日期、PDF 页数、关键页和证据范围：议程基础核验为 2026-10-08，5 份 LPC 官方 PDF 正文核验为 2026-10-09；IPADS 会后讲义及相关论文核验为 2026-10-17。</p>
 <p>优先从官方 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/262/">System Monitoring and Observability MC</a> 进入，随后结合 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/251/">Tracing MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/259/">Android MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/253/">AI 辅助开发 MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/249/">eBPF Track</a> 和 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/258/">Live Patching MC</a>。其中部分 session 列出了直播入口；是否存在可用回放及每场起止点，本次没有逐一核验。</p>
 <table>
 <thead>
@@ -360,6 +379,10 @@
 <td>Performance Prompts、drgn-mcp、腾讯 Agentic 提案</td>
 </tr>
 <tr>
+<td>Agent 自身的行为、成本与约束</td>
+<td><a target="_blank" rel="noopener" href="https://www.yunwei37.com/presentation/ipads-harness-2026/slides.pdf">IPADS 讲义</a> p.12–20、<a target="_blank" rel="noopener" href="https://arxiv.org/html/2508.02736v2#S5.SS1">AgentSight 实验</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/html/2606.25189v2#S5.SS6">ActPlane 实验</a></td>
+</tr>
+<tr>
 <td>故障库和修复验证</td>
 <td>What Bugs Matter、From Findings to Fixes、Syzbot</td>
 </tr>
@@ -368,7 +391,7 @@
 <td>Livepatch 共存、BPF RV、Wattson 功耗回归</td>
 </tr>
 </tbody></table>
-<p>本轮已核读的 5 份 PDF 见文首直链表。What Bugs Matter、Android 锁竞争、长期延迟监测、Wattson、Syzbot、From Findings to Fixes 和 BPF RV 的附件正文仍待深入阅读。腾讯 Agentic Network Observability 与 BPF-based Live Snapshots 的 slides、以及重点报告的独立录像继续跟踪；直播入口与可用回放状态分别记录。</p>
+<p>10 月 9 日核读的 5 份 LPC 官方 PDF 见文首直链表；10 月 17 日增补的 IPADS 讲义见第 5.4 节。What Bugs Matter、Android 锁竞争、长期延迟监测、Wattson、Syzbot、From Findings to Fixes 和 BPF RV 的附件正文仍待深入阅读。腾讯 Agentic Network Observability 与 BPF-based Live Snapshots 的 slides、以及重点报告的独立录像继续跟踪；直播入口与可用回放状态分别记录。</p>
 </section>
     <footer class="post-footer">
       <section class="author"><h4>MapleStory.zeng</h4><p>A fresh Programer, now working on Android Frameworks.</p></section>
