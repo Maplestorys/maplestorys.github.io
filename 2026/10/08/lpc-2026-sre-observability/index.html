@@ -24,8 +24,15 @@
     <section class="post-content"><p>Linux Plumbers Conference 2026 的会议日期为 10 月 5—7 日。本次值得 SRE 关注的内容不只在一个分会场：系统监控、Tracing、Android、eBPF、AI 辅助开发、实时系统和 Live Patching 都讨论了相关问题。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/">会议官网</a></p>
 <p>本文的判断是：<strong>在有限的观测预算内保留足够证据，把用户症状连接到系统行为，再把诊断结论交给可验证、可控制的修复流程，是这些议题共同指向的工程目标。</strong> 这是本文对不同报告的综合解读。</p>
 <blockquote>
-<p><strong>材料与证据范围</strong>：基础篇依据 2026-10-08 核对的 22 项官方议题与摘要；2026-10-09 核读 5 份官方 PDF，并新增 CRIU&#x2F;RDMA 议题。2026-10-17 增补 LPC 讲者的 IPADS 会后讲义，并用 AgentSight、ActPlane 论文核对实验条件。各来源的核验日期分别记录，其他议题沿用原有证据范围；报告日期与附件上传日期分别判断。</p>
+<p><strong>材料与证据范围</strong>：基础篇依据 2026-10-08 核对的 22 项官方议题与摘要；2026-10-09 核读 5 份官方 PDF，并新增 CRIU&#x2F;RDMA 议题。2026-10-17 增补 LPC 讲者的 IPADS 会后讲义，并用 AgentSight、ActPlane 论文核对实验条件。10 月 21 日核对官方录像入口与 Grafana 发布，补读 Forensic Checkpointing 讲义、Incident-Arena 论文及固定版本验证代码。各来源分别记录发布日期、核验日期和证据范围。</p>
 </blockquote>
+<h2 id="10-月-21-日更新：从可追溯证据，走向受控修复与独立验收"><a href="#10-月-21-日更新：从可追溯证据，走向受控修复与独立验收" class="headerlink" title="10 月 21 日更新：从可追溯证据，走向受控修复与独立验收"></a>10 月 21 日更新：从可追溯证据，走向受控修复与独立验收</h2><p>本轮有两项日期明确的新发布，以及两项补充阅读：</p>
+<ul>
+<li><strong>LPC 录像已公布。</strong> 官方于 10 月 19 日宣布录像发布；Brendan Gregg、CoreWeave、Meta、drgn + AI 和 Forensic Checkpointing 的直链已补入<a href="#%E5%B7%B2%E5%85%AC%E5%B8%83%E7%9A%84%E9%87%8D%E7%82%B9%E6%8A%A5%E5%91%8A%E5%BD%95%E5%83%8F">材料索引</a>。<a target="_blank" rel="noopener" href="https://lpc.events/blog/current/index.php/2026/10/19/lpc-2026-video-recordings-are-available/">官方公告</a></li>
+<li><strong>Grafana 补齐调查到候选修复的产品路径。</strong> 10 月 20 日，Assistant Watchers 正式可用（GA），Managed Sandboxes 开放公测；重点是证据复用和启动、发布权限的分离，见<a href="#5-5-%E4%BA%A7%E5%93%81%E8%BF%9B%E5%B1%95%EF%BC%9AGrafana-%E6%8A%8A%E6%8C%81%E7%BB%AD%E6%A3%80%E6%9F%A5%E6%8E%A5%E5%88%B0%E5%80%99%E9%80%89%E4%BF%AE%E5%A4%8D">第 5.5 节</a>。<a target="_blank" rel="noopener" href="https://grafana.com/blog/observabilitycon-2026-announcements/">发布汇总</a></li>
+<li><strong>补读两种“看似正常、证据却不足”的情形。</strong> Forensic Checkpointing 说明最终快照为何会丢失中间修改；Incident-Arena 用结果与安全双门禁区分指标恢复和有效修复，分别见第 4.4、6.3 节。它们是已有材料的本次新增分析。</li>
+</ul>
+<p><strong>本轮判断</strong>：优先迁移可核查的调查证据与独立修复验收，将服务恢复、安全约束和修复持续性分别检查。</p>
 <h2 id="10-月-17-日更新：把-Agent-自身纳入观测与控制"><a href="#10-月-17-日更新：把-Agent-自身纳入观测与控制" class="headerlink" title="10 月 17 日更新：把 Agent 自身纳入观测与控制"></a>10 月 17 日更新：把 Agent 自身纳入观测与控制</h2><p>Yusheng Zheng 于 10 月 16 日在第二届 IPADS 青年学术论坛 Agent Harness 专题分享“与智能体共同演化的可扩展操作系统”。<a target="_blank" rel="noopener" href="https://www.yunwei37.com/">讲者主页</a> <strong>本次核读的 PDF 为 21 页</strong>，题名为《Co-evolving OS Infrastructure with Agents through Runtime Extensions》。<a target="_blank" rel="noopener" href="https://www.yunwei37.com/presentation/ipads-harness-2026/slides.pdf">讲义 PDF</a></p>
 <p>这份材料属于 <strong>LPC 讲者的会后相关研究</strong>。其 LPC 原议题是与 Hao Sun 合作的 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2445/">Safely Optimizing eBPF for Hardware and Workloads</a>。它将任务意图与实际 OS 行为、资源消耗、运行时约束连接起来。机制、实验条件和四个开放问题见<a href="#5-4-%E4%BC%9A%E5%90%8E%E7%9B%B8%E5%85%B3%E7%A0%94%E7%A9%B6%EF%BC%9A%E4%BB%8E%E7%94%A8-Agent-%E8%AF%8A%E6%96%AD%E7%B3%BB%E7%BB%9F%EF%BC%8C%E5%88%B0%E8%A7%82%E6%B5%8B%E5%92%8C%E7%BA%A6%E6%9D%9F-Agent">第 5.4 节</a>。</p>
 <h2 id="10-月-9-日更新：五项工程细节与-Slides-直链"><a href="#10-月-9-日更新：五项工程细节与-Slides-直链" class="headerlink" title="10 月 9 日更新：五项工程细节与 Slides 直链"></a>10 月 9 日更新：五项工程细节与 Slides 直链</h2><p>本轮更新来自新核读的材料，日期记录阅读时间。官方页面提供的信息尚不足以判定这些附件是否都在过去 24 小时上传。</p>
@@ -205,7 +212,7 @@
 <p>指纹基于 panic 栈及寄存器值、错误信息等周边数据。AI 根因分析单独讨论；作者在第 6 页指出幻觉仍妨碍将 AI 用于故障分类／去重。第 9 页把 DPU 上经 RDMA 使用 drgn 读取运行内核列为探索，并提出安全性和生产实践问题。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2386/attachments/2062/4618/Crash%20Dumps%20-%20Capture%2C%20Dedup%2C%20and%20Analysis.pdf">官方 Slides，p.3、5–6、9</a></p>
 <p><strong>对 SRE 的启示</strong>：先识别已知故障，再选择采集深度，可减少重复转储。设备端实验应同时衡量恢复耗时、指纹误匹配、已知故障变体漏检和保留证据的诊断能力；这些是迁移方案需要验证的指标。</p>
 <h3 id="3-2-BPF-快照：把诊断请求变成有界采集"><a href="#3-2-BPF-快照：把诊断请求变成有界采集" class="headerlink" title="3.2 BPF 快照：把诊断请求变成有界采集"></a>3.2 BPF 快照：把诊断请求变成有界采集</h3><p>BPF 快照提案以在线内核中的任务、D-state 栈、runqueue、reclaim 和 I&#x2F;O 状态为对象，探索经过预先约束的内核内遍历与紧凑输出。作者同时把 iterator、helper&#x2F;kfunc、verifier、输出缓冲和不停机情况下的一致性保证列为讨论问题。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2622/">官方提案</a></p>
-<p>它提供了值得试验的在线状态采集设计点。本次检索中该议题仍未排期，也未确认可读的公开性能测量正文。</p>
+<p>它提供了值得试验的在线状态采集设计点。截至 2026-10-21，官方页面仍标为未排期、暂无材料，尚无可供本文核读的性能测量正文。</p>
 <p><strong>迁移建议</strong>：为每种采集器定义最大对象数、耗时、输出字节数及失败行为。达到限额时应报告 <code>truncated</code>、丢弃计数和有效时间区间，让分析器能识别信息缺口。</p>
 <h3 id="3-3-小记录不等于小系统成本"><a href="#3-3-小记录不等于小系统成本" class="headerlink" title="3.3 小记录不等于小系统成本"></a>3.3 小记录不等于小系统成本</h3><p><code>Build ID + offset sampling</code> 比较了直接记录文件身份和偏移，与记录虚拟地址后再依赖映射事件完成符号化的取舍；目标包括讨论混合采样方式。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2511/">官方摘要</a></p>
 <p>栈记录议题则讨论重复栈挤占缓冲区、栈合并及用户态栈的文件关联问题。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2512/">官方摘要</a>两者共同提醒我们：压缩单条事件，不一定能减少整套证据系统的开销；关联元数据、映射生命周期和重复记录同样占预算。</p>
@@ -223,6 +230,9 @@
 <h3 id="4-3-从锁顺序，扩展到通用等待／事件依赖"><a href="#4-3-从锁顺序，扩展到通用等待／事件依赖" class="headerlink" title="4.3 从锁顺序，扩展到通用等待／事件依赖"></a>4.3 从锁顺序，扩展到通用等待／事件依赖</h3><p>DEPT 关注等待和事件的关系，而不仅是传统锁的获取顺序，覆盖 completion、folio lock、DMA fence 等同步模式。作者把误报及子系统注解不足明确列为推进工作的难点。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2515/">官方摘要</a></p>
 <p>持锁者无法运行的 fleet 调查也说明，只看等待线程不够，还需要追踪被等待对象及其拥有者的可运行状态。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/262/">官方 session 摘要</a></p>
 <p><strong>本文判断</strong>：等待图的可解释性来自能够核查的依赖关系。边必须有来源和语义，例如“线程 A 在等事件 E”“任务 B 负责产生 E”；缺少关联或注解时，应保留未知状态。</p>
+<h3 id="4-4-Forensic-Checkpointing：写过什么，比“是否写过”更难保留"><a href="#4-4-Forensic-Checkpointing：写过什么，比“是否写过”更难保留" class="headerlink" title="4.4 Forensic Checkpointing：写过什么，比“是否写过”更难保留"></a>4.4 Forensic Checkpointing：写过什么，比“是否写过”更难保留</h3><p>Shailja Shaktawat 的 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2607/">LPC 报告</a>讨论了 CRIU 增量快照的证据缺口：两次快照之间，一页内容可能先被改写、再恢复原值。Soft-dirty 位能说明“写过”，却无法还原中间内容、执行线程及修改顺序。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2607/attachments/2243/4927/Memor_tracking_LPC2026_Slides.pdf">15 页官方讲义，p.3–7</a></p>
+<p>报告提出两条方向：复用首次写入触发的页错误，保留任务、地址和修改前页面；或记录首次写入的代次，以较少信息恢复<strong>不同页面首次写入之间的顺序</strong>。后者不包含该页随后的全部修改。脏页数量突增也可作为异常线索，先记录计数和地址范围，再决定复制哪些页面。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2607/attachments/2243/4927/Memor_tracking_LPC2026_Slides.pdf">讲义，p.10–13</a></p>
+<p>这些设计建议尚缺实测开销。<strong>对稀疏记录方案的具体启示</strong>是：将“短暂修改后回写原值”纳入第 9.3 节的反例测试，检验快照与轻量变化记录能否区分候选根因。这份 10 月 7 日报告是本次补充核读的材料，PDF 上传日期尚未确认。</p>
 <h2 id="五、主线四：AI-改变诊断的入口，但不替代测量与调试工具"><a href="#五、主线四：AI-改变诊断的入口，但不替代测量与调试工具" class="headerlink" title="五、主线四：AI 改变诊断的入口，但不替代测量与调试工具"></a>五、主线四：AI 改变诊断的入口，但不替代测量与调试工具</h2><h3 id="5-1-Performance-prompts：维护的资产不再只有工具代码"><a href="#5-1-Performance-prompts：维护的资产不再只有工具代码" class="headerlink" title="5.1 Performance prompts：维护的资产不再只有工具代码"></a>5.1 Performance prompts：维护的资产不再只有工具代码</h3><p>Brendan Gregg 将 prompt、skill 和 agent 放进性能分析流程，并讨论如何让 flame graph、eBPF、ftrace 等工具适合 AI 使用。第 15 页比较 PNG、SVG 与原始采样文本在效果、主机开销、Token 成本、可重复性及人工复核上的取舍；作者提出可以探索<strong>细节量介于 PNG 与 SVG 之间的 JSON 摘要</strong>。第 22 页进一步要求工具输出既保留诊断细节，也便于人审和模型处理。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2450/attachments/1996/4522/LPC2026_PerformanceToolsAndPrompts.pdf">官方 Slides，p.14–15、22</a></p>
 <p>Skill 也需要评测。第 26 页展示了超过 100 道性能题的结果：Brendan2015 为 17.4%，perf1 为 41.3%，perf2 为 79.8%；Brendan2015B 的 <strong>86.2% 被作者明确标为 Invalid</strong>，并用于说明 AI 可能找到提高评测分数的投机路径。阅读这张表时，需同时记录分数与有效性标记。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2450/attachments/1996/4522/LPC2026_PerformanceToolsAndPrompts.pdf">官方 Slides，p.26</a></p>
 <p><strong>本文建议</strong>：把诊断经验写成可版本化的过程，包含适用问题、所需证据、工具、停止条件和结论格式；评测中独立检查根因、取证链和任务完成条件，并保留失败样例。观测预算也应纳入模型处理成本。</p>
@@ -252,6 +262,10 @@
 <li><strong>协调</strong>：多个 Agent 在同一扩展点加载策略时，如何组合与处理冲突？</li>
 </ol>
 <p><strong>本文建议</strong>：Agentic SRE 的首个增量应是把一次诊断任务关联到其进程树、系统副作用、资源预算与约束事件，先验证取证成本和权限边界，再试验动态策略。这与第 5.3 节的只读取证路径衔接，也为第七节的观测机制控制补上了 Agent 执行层。</p>
+<h3 id="5-5-产品进展：Grafana-把持续检查接到候选修复"><a href="#5-5-产品进展：Grafana-把持续检查接到候选修复" class="headerlink" title="5.5 产品进展：Grafana 把持续检查接到候选修复"></a>5.5 产品进展：Grafana 把持续检查接到候选修复</h3><p>Grafana 在 <strong>10 月 20 日</strong>发布 Assistant Watchers GA 与 Managed Sandboxes 公测。前者持续检查遥测并发起调查，后者将调查上下文与仓库源码交给隔离环境中的编码 Agent，准备改动及测试结果；Investigations 本身已在 7 月下旬 GA。<a target="_blank" rel="noopener" href="https://grafana.com/blog/observabilitycon-2026-announcements/">官方发布汇总</a>、<a target="_blank" rel="noopener" href="https://grafana.com/blog/grafana-ai-autonomous-operations/">产品说明</a></p>
+<p><strong>证据随调查传递。</strong> Watchers 保留查询、遥测证据与运行报告，检查定义可比较版本并恢复。常规检查使用 Assistant 服务账号，自动重新校准则使用创建者身份，部署时需要分别核对两条路径的数据权限。已有明确条件的可靠告警继续承担寻呼职责。<a target="_blank" rel="noopener" href="https://grafana.com/docs/grafana-cloud/platform/grafana-assistant/platform/watchers/">Watchers 文档</a></p>
+<p><strong>启动与发布分开授权。</strong> 对 <strong>Grafana sandbox provider</strong>，沙箱命令不能直接推送代码或创建 PR；可配置批准后发布，或仅对已核验的私有仓库自动推分支、开草稿 PR，合并仍在 GitHub 完成。Cursor／Claude 等外部 provider 使用各自的仓库权限，不适用同一发布门禁。<a target="_blank" rel="noopener" href="https://grafana.com/docs/grafana-cloud/platform/grafana-assistant/platform/managed-sandboxes/">沙箱文档</a></p>
+<p><strong>对 Agentic SRE 的启示</strong>：调查证据、代码改动和测试结果可以形成连续交接，但沙箱测试通过后，仍需在发布流程中确认生产恢复。<a target="_blank" rel="noopener" href="https://grafana.com/blog/grafana-ai-autonomous-operations/">产品说明</a></p>
 <h2 id="六、主线五：从“发现问题”走向“可复现、值得修、有人负责”"><a href="#六、主线五：从“发现问题”走向“可复现、值得修、有人负责”" class="headerlink" title="六、主线五：从“发现问题”走向“可复现、值得修、有人负责”"></a>六、主线五：从“发现问题”走向“可复现、值得修、有人负责”</h2><h3 id="6-1-报告数量不是可靠性成果"><a href="#6-1-报告数量不是可靠性成果" class="headerlink" title="6.1 报告数量不是可靠性成果"></a>6.1 报告数量不是可靠性成果</h3><p><code>What Bugs Matter?</code> 关注异构报告的归并、子系统映射、在 KASAN 内核中尝试生成并运行 reproducer，以及实际影响评估。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2550/">官方摘要</a></p>
 <p>同一作者的 <code>From Findings to Fixes</code> 进一步介绍正在开发的持续缺陷收集与验证平台，强调验证复现条件、触发权限和实际影响，再为获得运行证据的问题生成分析和候选补丁。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2601/">官方摘要</a>两场内容相关，不宜当作两份相互独立的效果验证。</p>
 <p><strong>对 SRE 的启示</strong>：报警、疑似缺陷、可复现问题、值得投入的问题和已完成修复，应是不同的状态。incident 的解决状态应以修复后的实际验证结果为依据。</p>
@@ -261,6 +275,9 @@
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">finding</span><br><span class="line">  → evidence collected</span><br><span class="line">  → reproduced / not reproduced / insufficient evidence</span><br><span class="line">  → impact assessed</span><br><span class="line">  → patch proposed</span><br><span class="line">  → regression checked</span><br><span class="line">  → reviewed</span><br><span class="line">  → rolled out</span><br><span class="line">  → outcome verified</span><br></pre></td></tr></table></figure>
 
 <p>其中，reproducer 与构建结果分别记录用例和配置覆盖范围；完整修复还需回归与评审，线上部署按既定授权执行。</p>
+<h3 id="6-3-Incident-Arena：服务指标恢复与安全修复分别过关"><a href="#6-3-Incident-Arena：服务指标恢复与安全修复分别过关" class="headerlink" title="6.3 Incident-Arena：服务指标恢复与安全修复分别过关"></a>6.3 Incident-Arena：服务指标恢复与安全修复分别过关</h3><p>本次补读的 <strong>Incident-Arena</strong>（9 月 30 日发表）包含 20 个任务，覆盖 Frappe、Saleor 和作者构建的 Slack-like 服务。它将验收拆成两道门禁：<strong>Outcome</strong> 在持续负载下检查有效吞吐、延迟与错误率；<strong>Safety</strong> 检查改动范围、数据与保护机制，以及任务要求的重启或再次触发后的修复持续性。两者同时通过才判成功；各任务还用“参考修复通过、no-op 失败”校准判据。<a target="_blank" rel="noopener" href="https://arxiv.org/html/2610.00648v1">论文 §3.3</a></p>
+<p>论文采用 60 分钟执行预算，随后在完整负载周期边界开始 <strong>180 秒、无 Agent 干预的验收窗口</strong>。<a target="_blank" rel="noopener" href="https://arxiv.org/html/2610.00648v1">论文 §4</a> 公开验证器也把 <code>outcome</code> 与 <code>safe_repair</code> 分开输出。例如队列故障任务要求保留已接受工作、邮件恰好一次交付，并经受验证器控制的重启；清空队列使指标恢复不构成合格修复。<a target="_blank" rel="noopener" href="https://github.com/abundant-ai/incident-arena/blob/fba011e451653c4058c2dc80a97c5d260c036872/tasks/07-writes-and-queue-oom-f1db8f42/tests/verifier/reward.py">固定版本验证器</a>、<a target="_blank" rel="noopener" href="https://github.com/abundant-ai/incident-arena/blob/fba011e451653c4058c2dc80a97c5d260c036872/tasks/07-writes-and-queue-oom-f1db8f42/environment/chart/ground-truth.yaml">任务约束</a></p>
+<p><strong>对故障库的启示</strong>：把“用户症状恢复”“变更未破坏数据与权限约束”“再次触发后仍然有效”分别作为验收项，避免只检查 Agent 的结论或告警是否消失。本次证据来自论文与代码核读，基准未在本文环境运行。</p>
 <h2 id="七、主线六：观测系统本身也需要可预测的控制与验证"><a href="#七、主线六：观测系统本身也需要可预测的控制与验证" class="headerlink" title="七、主线六：观测系统本身也需要可预测的控制与验证"></a>七、主线六：观测系统本身也需要可预测的控制与验证</h2><h3 id="7-1-BPF-Runtime-Verification：已知规则可变成在线检查"><a href="#7-1-BPF-Runtime-Verification：已知规则可变成在线检查" class="headerlink" title="7.1 BPF Runtime Verification：已知规则可变成在线检查"></a>7.1 BPF Runtime Verification：已知规则可变成在线检查</h3><p>BPF RV 议题探索把确定性自动机等运行时验证逻辑映射到 BPF，利用 maps、ring buffer、<code>struct_ops</code> 等机制与现有 RV 框架和命令行生命周期管理整合。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2446/">官方摘要</a></p>
 <p>它提示了一条与大型模型互补的路线：规则明确、状态空间可控的问题，可以由专用 monitor 在线判断。<strong>本文进一步建议，把经验证的故障经验实现为轻量检测器。</strong> monitor 的误报、漏报、事件缺失和资源消耗仍需测试。</p>
 <h3 id="7-2-Livepatch-与探针冲突需要生产控制"><a href="#7-2-Livepatch-与探针冲突需要生产控制" class="headerlink" title="7.2 Livepatch 与探针冲突需要生产控制"></a>7.2 Livepatch 与探针冲突需要生产控制</h3><p>共存模型议题指出，热补丁与 ftrace、kprobe、kretprobe、BPF 等机制可能争用同一函数附近的插桩能力，造成发布阻塞或观测缺口。讨论方向包括占用报告、明确的失败原因、转换进度和负向测试。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2523/">官方摘要</a></p>
@@ -357,8 +374,8 @@
 <p><strong>有界采集需要实际测量。</strong> 静态开关、BPF verifier 和遍历限额提供约束，目标工作负载上的测量说明实际扰动，尤其要覆盖极端负载。</p>
 <p><strong>自动生成的结果需要独立检查。</strong> 诊断脚本、检测规则和补丁分别通过相应验证，观察、测试、修改和部署权限按职责设置。</p>
 <p>对于低开销设备观测，可以从少量长期线索、触发式状态采集、依赖关联和按需诊断逐步建立闭环。目标是<strong>预算内的诊断充分性</strong>：保留有身份、有时间、有范围、能够支持检验的证据，并持续验证观测和修复的实际效果。</p>
-<h2 id="原始材料索引与阅读顺序"><a href="#原始材料索引与阅读顺序" class="headerlink" title="原始材料索引与阅读顺序"></a>原始材料索引与阅读顺序</h2><p><a href="/assets/lpc-2026-sre-observability/references.json">来源清单与链接核验记录</a>记录逐项核验日期、PDF 页数、关键页和证据范围：议程基础核验为 2026-10-08，5 份 LPC 官方 PDF 正文核验为 2026-10-09；IPADS 会后讲义及相关论文核验为 2026-10-17。</p>
-<p>优先从官方 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/262/">System Monitoring and Observability MC</a> 进入，随后结合 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/251/">Tracing MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/259/">Android MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/253/">AI 辅助开发 MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/249/">eBPF Track</a> 和 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/258/">Live Patching MC</a>。其中部分 session 列出了直播入口；是否存在可用回放及每场起止点，本次没有逐一核验。</p>
+<h2 id="原始材料索引与阅读顺序"><a href="#原始材料索引与阅读顺序" class="headerlink" title="原始材料索引与阅读顺序"></a>原始材料索引与阅读顺序</h2><p><a href="/assets/lpc-2026-sre-observability/references.json">来源清单与链接核验记录</a>记录逐项核验日期、PDF 页数、关键页和证据范围：议程基础核验为 2026-10-08，5 份 LPC 官方 PDF 正文核验为 2026-10-09；IPADS 会后讲义及相关论文核验为 2026-10-17；本轮录像入口、Forensic 讲义、Grafana 发布和 Incident-Arena 核验为 2026-10-21。</p>
+<p>优先从官方 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/262/">System Monitoring and Observability MC</a> 进入，随后结合 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/251/">Tracing MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/259/">Android MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/253/">AI 辅助开发 MC</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/249/">eBPF Track</a> 和 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/sessions/258/">Live Patching MC</a>。System Monitoring 页面还列出 fleet kmemleak、page owner、7×24 网络延迟监测及 relay diagnostic API 等讨论线索，可沿所附邮件继续跟踪各自进展。</p>
 <table>
 <thead>
 <tr>
@@ -368,7 +385,7 @@
 </thead>
 <tbody><tr>
 <td>低开销、长时间故障捕获</td>
-<td>BPF 快照提案、统一故障报告、轻量 RT tracepoint、长期延迟监测</td>
+<td>BPF 快照提案、统一故障报告、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2607/attachments/2243/4927/Memor_tracking_LPC2026_Slides.pdf">Forensic Checkpointing</a>、轻量 RT tracepoint、长期延迟监测</td>
 </tr>
 <tr>
 <td>设备端卡顿与等待链</td>
@@ -384,14 +401,43 @@
 </tr>
 <tr>
 <td>故障库和修复验证</td>
-<td>What Bugs Matter、From Findings to Fixes、Syzbot</td>
+<td>What Bugs Matter、From Findings to Fixes、Syzbot、<a target="_blank" rel="noopener" href="https://arxiv.org/html/2610.00648v1">Incident-Arena</a></td>
 </tr>
 <tr>
 <td>生产变更与采集控制</td>
-<td>Livepatch 共存、BPF RV、Wattson 功耗回归</td>
+<td>Livepatch 共存、BPF RV、Wattson 功耗回归、<a target="_blank" rel="noopener" href="https://grafana.com/docs/grafana-cloud/platform/grafana-assistant/platform/managed-sandboxes/">Grafana 沙箱发布控制</a></td>
 </tr>
 </tbody></table>
-<p>10 月 9 日核读的 5 份 LPC 官方 PDF 见文首直链表；10 月 17 日增补的 IPADS 讲义见第 5.4 节。What Bugs Matter、Android 锁竞争、长期延迟监测、Wattson、Syzbot、From Findings to Fixes 和 BPF RV 的附件正文仍待深入阅读。腾讯 Agentic Network Observability 与 BPF-based Live Snapshots 的 slides、以及重点报告的独立录像继续跟踪；直播入口与可用回放状态分别记录。</p>
+<p>10 月 9 日核读的 5 份 LPC 官方 PDF 见文首直链表；IPADS 讲义见第 5.4 节，Forensic Checkpointing 见第 4.4 节。What Bugs Matter、Android 锁竞争、长期延迟监测、Wattson、Syzbot、From Findings to Fixes 和 BPF RV 的附件正文仍待深入阅读。截至 2026-10-21，腾讯 Agentic Network Observability 与 BPF-based Live Snapshots 的官方页面仍标为未排期、暂无材料。</p>
+<h3 id="已公布的重点报告录像"><a href="#已公布的重点报告录像" class="headerlink" title="已公布的重点报告录像"></a>已公布的重点报告录像</h3><p>LPC 官方于 <strong>10 月 19 日宣布录像发布</strong>。<a target="_blank" rel="noopener" href="https://lpc.events/blog/current/index.php/2026/10/19/lpc-2026-video-recordings-are-available/">官方公告</a> 下列入口于 10 月 21 日核对，视频标题、讲者与官方频道匹配；本次未观看录像，正文技术结论仍依据已核读的文字材料。</p>
+<table>
+<thead>
+<tr>
+<th>报告／讲者</th>
+<th>独立录像</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Performance Tools and Prompts — Brendan Gregg</td>
+<td><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=RyO7vdjpfes">观看</a></td>
+</tr>
+<tr>
+<td>CoreWeave Crash Dumps — Serapheim Dimitropoulos</td>
+<td><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=CxojrJ1i1Ks">观看</a></td>
+</tr>
+<tr>
+<td>Detecting Unhealthy Kernels at Scale — Sam Crossley</td>
+<td><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=4Ma3rfFUb8Y">观看</a></td>
+</tr>
+<tr>
+<td>drgn + AI — Wander Costa</td>
+<td><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=oexQRN_OwA8">观看</a></td>
+</tr>
+<tr>
+<td>Forensic Checkpointing — Shailja Shaktawat</td>
+<td><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=wGe4PYrs-1o">观看</a></td>
+</tr>
+</tbody></table>
 </section>
     <footer class="post-footer">
       <section class="author"><h4>MapleStory.zeng</h4><p>A fresh Programer, now working on Android Frameworks.</p></section>
