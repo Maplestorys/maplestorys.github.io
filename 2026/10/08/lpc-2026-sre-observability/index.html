@@ -26,6 +26,8 @@
 <blockquote>
 <p><strong>材料与证据范围</strong>：基础篇依据 2026-10-08 核对的 22 项官方议题与摘要；2026-10-09 核读 5 份官方 PDF，并新增 CRIU&#x2F;RDMA 议题。2026-10-17 增补 LPC 讲者的 IPADS 会后讲义，并用 AgentSight、ActPlane 论文核对实验条件。10 月 21 日核对官方录像入口与 Grafana 发布，补读 Forensic Checkpointing 讲义、Incident-Arena 论文及固定版本验证代码。各来源分别记录发布日期、核验日期和证据范围。</p>
 </blockquote>
+<h2 id="10-月-31-日更新：锁依赖还需要调度上下文"><a href="#10-月-31-日更新：锁依赖还需要调度上下文" class="headerlink" title="10 月 31 日更新：锁依赖还需要调度上下文"></a>10 月 31 日更新：锁依赖还需要调度上下文</h2><p>LPC 于 10 月 28 日发布 <a target="_blank" rel="noopener" href="https://lpc.events/blog/current/index.php/2026/10/28/the-sched_exit-microconference/">sched_ext 会后总结</a>。其中，Proxy Execution 与 sched_ext 的兼容改动排队进入 Linux 7.4；普通 futex 缺少可靠的持有者身份，上游也尚缺 Proxy Execution tracepoint。诊断持锁者饥饿时，单看锁栈或 CPU 使用量都不够，还需知道谁在等待、谁实际执行以及任务期限。</p>
+<p>本次将该进展及前期历史接入 <a href="/2026/10/31/technical-tracking-weekly/">五项技术跟踪周报</a>。后续跨专题增量集中在周报，本页继续保留 LPC 议题地图与详细证据索引。</p>
 <h2 id="10-月-21-日更新：从可追溯证据，走向受控修复与独立验收"><a href="#10-月-21-日更新：从可追溯证据，走向受控修复与独立验收" class="headerlink" title="10 月 21 日更新：从可追溯证据，走向受控修复与独立验收"></a>10 月 21 日更新：从可追溯证据，走向受控修复与独立验收</h2><p>本轮有两项日期明确的新发布，以及两项补充阅读：</p>
 <ul>
 <li><strong>LPC 录像已公布。</strong> 官方于 10 月 19 日宣布录像发布；Brendan Gregg、CoreWeave、Meta、drgn + AI 和 Forensic Checkpointing 的直链已补入<a href="#%E5%B7%B2%E5%85%AC%E5%B8%83%E7%9A%84%E9%87%8D%E7%82%B9%E6%8A%A5%E5%91%8A%E5%BD%95%E5%83%8F">材料索引</a>。<a target="_blank" rel="noopener" href="https://lpc.events/blog/current/index.php/2026/10/19/lpc-2026-video-recordings-are-available/">官方公告</a></li>
@@ -448,7 +450,7 @@
     </footer>
   </article>
   <nav class="pagination" role="pagination">
-    
+    <a class="newer-posts" href="/2026/10/31/technical-tracking-weekly/">← 技术跟踪周报：Agentic SRE、Android 可观测性与 AI 工程</a>
     <span class="page-number">•</span>
     <a class="older-posts" href="/2026/10/08/small-export-ai-coding-practice/">small-export 故障诊断 AI 开发实践总结 →</a>
   </nav>

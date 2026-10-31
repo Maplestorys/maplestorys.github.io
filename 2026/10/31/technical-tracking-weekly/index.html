@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>技术跟踪周报：Agentic SRE、Android 可观测性与 AI 工程 | MapleStory</title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/css/screen.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400">
+</head>
+<body class="post-template">
+  <header class="site-head" style="background-image: url(/img/banner.jpg)">
+    <div class="vertical"><div class="site-head-content inner">
+      <a class="blog-logo" href="/"><img src="https://blog.ghost.org/content/images/2013/Nov/bloglogo_1-1.png" alt="Blog Logo"></a>
+      <h1 class="blog-title">MapleStory</h1>
+      <h2 class="blog-description"></h2>
+    </div></div>
+  </header>
+  <main class="content" role="main">
+  <article class="post">
+    <span class="post-meta"><time datetime="2026-10-31T01:00:00.000Z" itemprop="datePublished">2026-10-31</time></span>
+    <h1 class="post-title">技术跟踪周报：Agentic SRE、Android 可观测性与 AI 工程</h1>
+    <section class="post-content"><p><strong>更新于 2026-10-31 · 每周五北京时间 12:00 汇总</strong></p>
+<p>五条跟踪线正在汇合到同一个问题：<strong>怎样让 Agent 获得足够的故障证据，采取受控行动，并用独立检查证明结果有效？</strong> 本页保留历史里程碑，在顶部增补每周变化。同一成果跨专题出现时只展开一次。</p>
+<p>首期回溯已取得并可核验的 2026 年 9—10 月跟踪记录；Skill 专题同时补入相关论文的早期版本脉络。下面的“跟踪日期”表示当时收录时间，不等于材料首发日期。仅有历史摘要、尚不能重新核对的细节不作为已确认成果。</p>
+<h2 id="五项跟踪概览"><a href="#五项跟踪概览" class="headerlink" title="五项跟踪概览"></a>五项跟踪概览</h2><style>
+.tracking-overview table { width: 100%; table-layout: fixed; font-size: 18px; line-height: 1.6; }
+.tracking-overview th, .tracking-overview td { padding: 12px 10px; vertical-align: top; overflow-wrap: break-word; }
+.tracking-overview th:first-child { width: 31%; }
+.tracking-overview th:nth-child(2) { width: 18%; }
+@media (max-width: 600px) { .tracking-overview { overflow-x: auto; } .tracking-overview table { min-width: 620px; } }
+</style>
+<div class="tracking-overview">
+
+<table>
+<thead>
+<tr>
+<th>专题</th>
+<th>最近取得的技术更新</th>
+<th>本期进展</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="#sre">Agentic SRE 进展</a></td>
+<td>10 月 29 日</td>
+<td>通用 RCA 对照实验、端侧小模型、跨 Agent 协作与受治理执行</td>
+</tr>
+<tr>
+<td><a href="#android">Android可观测进展</a></td>
+<td>10 月 30 日</td>
+<td>跨重启 trace、生产故障查询接口与 ANR 分析工作流</td>
+</tr>
+<tr>
+<td><a href="#lpc">LPC 2026 SRE 跟踪</a></td>
+<td>10 月 29 日；30 日检查无新增</td>
+<td>sched_ext 会后总结；保留早期 Slides 与录像索引</td>
+</tr>
+<tr>
+<td><a href="#coding">Android&#x2F;Chromium AI Coding</a></td>
+<td>9 月 18 日</td>
+<td>回溯评测、上下文权限和 Gerrit&#x2F;LUCI 工具适配；原跟踪有暂停记录</td>
+</tr>
+<tr>
+<td><a href="#skills">自演进工作流&#x2F;Skill</a></td>
+<td>历史研究与设计讨论</td>
+<td>整理四条研究脉络及回放、审核、撤回原则；本周未取得新的跟踪条目</td>
+</tr>
+</tbody></table>
+</div>
+
+<p>Android 可观测性历史中也出现过暂停提示，但其后仍有 10 月 30 日更新。这里按实际收到的内容记账，不据此推断原定时任务当前是否启用。</p>
+<h2 id="2026-10-31-首期：本周值得优先读什么"><a href="#2026-10-31-首期：本周值得优先读什么" class="headerlink" title="2026-10-31 首期：本周值得优先读什么"></a>2026-10-31 首期：本周值得优先读什么</h2><p>本周窗口为 <strong>10 月 24—30 日</strong>，10 月 31 日完成首发及历史补录。</p>
+<h3 id="1-RCA：先给模型调查自由，再判断是否需要固定流程"><a href="#1-RCA：先给模型调查自由，再判断是否需要固定流程" class="headerlink" title="1. RCA：先给模型调查自由，再判断是否需要固定流程"></a>1. RCA：先给模型调查自由，再判断是否需要固定流程</h3><p>10 月 26 日提交的 <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.35767">Free to Look, Free to Reason</a> 在 RCAtlas 的 <strong>90 个有效故障案例</strong>上比较三种简单 Harness、五种专用 RCA Agent 及统计／因果方法。在三个中档模型上，简单 Harness 的 PR@1 为 <strong>65%—77%</strong>，专用 Agent 为 <strong>16%—53%</strong>。案例分析显示，固定步骤可能跳过决定性证据。</p>
+<p>这是微服务基准结果。对诊断流程的直接启发是：<strong>把领域知识做成可调用的指导，不要在缺乏对照实验时把调查顺序固化。</strong> 与 Diviner 的领域知识实践合起来看，应比较“自由调查”“可选 Skill”“固定流程”，而不是只比较模型或 Agent 数量。</p>
+<h3 id="2-Android：把故障前后的证据接起来"><a href="#2-Android：把故障前后的证据接起来" class="headerlink" title="2. Android：把故障前后的证据接起来"></a>2. Android：把故障前后的证据接起来</h3><p><a target="_blank" rel="noopener" href="https://github.com/google/perfetto/releases/tag/v59.1">Perfetto v59.1</a> 于 10 月 27 日发布，增加 Android 跨重启 trace 恢复，以及面向 Agent 的 Trace Processor 输出。<code>persist_trace_across_reboots</code> 配合重启后恢复流程，能够保留原本因重启而截断的调查窗口。该配置仍标注为 Android 专用、非通用用途，应由平台侧评估权限和部署条件。<a target="_blank" rel="noopener" href="https://perfetto.dev/docs/reference/trace-config-proto">配置说明</a></p>
+<p><a target="_blank" rel="noopener" href="https://developer.android.com/tools/agents/android-cli/release-notes">Android CLI 1.1</a> 的 <code>android signals</code> 则把 Crashlytics 中的 crash、ANR、non-fatal 和低内存 heap dump 接到终端调查流程。它依赖相应 Firebase 项目权限；不是设备上无条件可用的系统日志接口。<a target="_blank" rel="noopener" href="https://developer.android.com/tools/agents/android-cli/commands/signals">命令文档</a></p>
+<p>两项更新分别补强<strong>系统侧连续取证</strong>和<strong>生产故障到具体样本的检索</strong>，不能相互替代。</p>
+<h3 id="3-端侧模型：先验证小范围告警分类"><a href="#3-端侧模型：先验证小范围告警分类" class="headerlink" title="3. 端侧模型：先验证小范围告警分类"></a>3. 端侧模型：先验证小范围告警分类</h3><p><a target="_blank" rel="noopener" href="https://aws.amazon.com/blogs/machine-learning/exowatt-beats-frontier-models-on-accuracy-with-sagemaker-serverless-model-customization/">AWS &#x2F; Exowatt 案例</a> 使用微调后的 Qwen3-1.7B 做特定能源设备告警分类，在 <strong>320 个测试案例</strong>上报告 Macro-F1 <strong>0.911</strong>。量化模型约 <strong>1.71 GiB</strong>，要求输出引用输入行的 JSON，并在证据不足时弃答。</p>
+<p>边缘模型的自主运行验证发生在<strong>云端站点副本的 Shadow Mode</strong>；不能把它写成大规模现场设备自主修复。更值得借鉴的是窄任务、可检查引用和明确弃答，而不是直接迁移其准确率。</p>
+<h3 id="4-调度：有-CPU-时间，不代表能赶上任务期限"><a href="#4-调度：有-CPU-时间，不代表能赶上任务期限" class="headerlink" title="4. 调度：有 CPU 时间，不代表能赶上任务期限"></a>4. 调度：有 CPU 时间，不代表能赶上任务期限</h3><p>LPC 于 10 月 28 日发布 <a target="_blank" rel="noopener" href="https://lpc.events/blog/current/index.php/2026/10/28/the-sched_exit-microconference/">sched_ext 会后总结</a>。报告讨论让 mutex 等待者把调度上下文借给持锁者的 Proxy Execution；兼容性改动排队进入 Linux 7.4，普通 futex 的持有者信息和上游 tracepoint 仍有缺口。</p>
+<p>LAVD 的 Steam Frame 场景需要在 <strong>33 ms</strong> 内完成约 <strong>7—8 ms</strong> 的相机 CPU 工作；持锁者或被唤醒等待者被延迟调度都可能错过期限。诊断时应一起检查锁依赖、Runnable 等待与任务截止时间，不能只统计 CPU 使用量。</p>
+<h3 id="5-运维产品：协作能力增加，执行约束仍要独立"><a href="#5-运维产品：协作能力增加，执行约束仍要独立" class="headerlink" title="5. 运维产品：协作能力增加，执行约束仍要独立"></a>5. 运维产品：协作能力增加，执行约束仍要独立</h3><p>10 月 28 日，<a target="_blank" rel="noopener" href="https://www.virtana.com/press-release/virtana-launches-agentic-observability-enterprise-management-ushering-in-a-new-era-of-collaborative-ai-agents-for-autonomous-it/">Virtana AOEM</a> 公布基于共享系统上下文、MCP 与 A2A 的协作方向；<a target="_blank" rel="noopener" href="https://openai.com/index/openai-servicenow-partnership-expansion/">OpenAI &#x2F; ServiceNow</a> 强调通过 Action Fabric 复用既有业务规则和权限。它们是产品与集成进展，尚不足以给出通用事故自动修复成功率。</p>
+<p><strong>本期优先顺序：</strong> 诊断团队先读 RCAtlas 与 Perfetto；端侧研究再读 Exowatt；需要自动执行恢复动作的团队，重点审视权限、审批及恢复效果检查。</p>
+<p><a id="sre"></a></p>
+<h2 id="一、Agentic-SRE：从动态调查到受控恢复"><a href="#一、Agentic-SRE：从动态调查到受控恢复" class="headerlink" title="一、Agentic SRE：从动态调查到受控恢复"></a>一、Agentic SRE：从动态调查到受控恢复</h2><h3 id="历史里程碑"><a href="#历史里程碑" class="headerlink" title="历史里程碑"></a>历史里程碑</h3><ul>
+<li><strong>10-18 跟踪｜SolarWinds Avior，10-14 发布。</strong> 以明确运维目标组织调查，配合最小权限、审批、审计和回滚支持。材料属于厂商产品说明；公开效果数据尚不足以衡量无人值守恢复能力。<a target="_blank" rel="noopener" href="https://www.solarwinds.com/company/newsroom/press-releases/solarwinds-unveils-avior-bringing-deterministic-agentic-ai-to-enterprise-it">官方发布</a></li>
+<li><strong>10-19 跟踪｜Datadog Scout 1.0。</strong> 用历史事故与遥测构造调查模拟，强化学习训练专用 SRE 模型，并以 AlertEval 和 SREGym 分别观察内部任务质量与外部基准表现。官方报告的成本优势依赖其评测条件；产品处于内部使用和客户封闭预览。<a target="_blank" rel="noopener" href="https://www.datadoghq.com/blog/ai/introducing-scout-sre-specialized-model-bits-ai/">技术介绍</a></li>
+<li><strong>10-20 跟踪｜Meta Diviner。</strong> 将专家知识编码为有作用域、版本的 Skill、工具与知识图谱；调查使用故障当时的证据，知识修改经过历史回放和负责人批准。最重要的契约之一是把“空结果”与“查询失败”分开。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.21281">论文</a></li>
+<li><strong>10-20 跟踪｜OpenAI SEVBot。</strong> 10-14 的 SREcon 演讲以 OpenAI 运维实践讨论信息供给、协作及从建议到自主行动的信任建立。本次 PDF 直链返回访问错误，具体 SEVBot 机制保留为待复核历史线索。<a target="_blank" rel="noopener" href="https://www.usenix.org/conference/srecon26emea/presentation/guenther">官方演讲页</a></li>
+<li><strong>10-21 跟踪｜DevOps Guru 迁移。</strong> AWS 推荐以 CloudWatch 负责配置化检测，以 DevOps Agent 负责按需调查。旧有 Proactive Insights 没有直接等价替代，迁移时需要核对检测覆盖；官方结束支持日期为 <strong>2027-09-30</strong>。<a target="_blank" rel="noopener" href="https://docs.aws.amazon.com/devops-guru/latest/userguide/devops-guru-transition.html">迁移指南</a></li>
+<li><strong>10-22 跟踪｜可复用 Skill 与并发故障漏诊。</strong> SRE Extension 提供跨 Harness 的工具和 Skill 入口；Aurora 厂商对 19 个 Kubernetes 故障的实验则显示，告警驱动调查可能漏掉第二个并发故障。测试规模、厂商参与和评分方式限制了排名结论，但支持保留独立全局检查。<a target="_blank" rel="noopener" href="https://github.com/gemini-cli-extensions/sre">SRE Extension</a>、<a target="_blank" rel="noopener" href="https://www.aurorasre.ai/blog/top-ai-sre-tools-2026">实验原文</a></li>
+<li><strong>历史评测补充｜从单次故障转向持续故障评测。</strong> SREGym 提供可扩展的真实系统故障环境；SRE-Marathon 把重叠故障与正常变更管线纳入长时间运行。后者最高分仅 41.3&#x2F;100，揭示“能关联告警”到“及时修复”之间仍有明显差距。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.07161">SREGym</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.33023">SRE-Marathon</a></li>
+<li><strong>10-23 跟踪｜独立监控的必要性。</strong> METR &#x2F; Redwood 对历史内部 Agent 监控系统的红队检查发现触发时机和覆盖缺口。评估对象是当时系统，不能直接当作现网覆盖率；对运维的启发是让审计和执行处于不同控制边界。<a target="_blank" rel="noopener" href="https://metr.org/blog/2026-10-22-red-teaming-openai-agent-monitoring/">原始报告</a></li>
+<li><strong>10-24 跟踪｜Grafana Watchers。</strong> 自然语言定义检查，基于遥测持续发现变化，并连接调查；已有告警仍有独立作用。Watcher 正式可用不代表沙箱生成修复 PR 已完成生产自治验证。<a target="_blank" rel="noopener" href="https://grafana.com/whats-new/2026-10-19-assistant-watchers-are-now-generally-available-in-grafana-cloud/">GA 公告</a></li>
+<li><strong>10-24 跟踪｜Google Agent Compute Engine。</strong> 10-23 的架构文章介绍硬件隔离 microVM、暂停／恢复及外置凭证处理。对外预览仍在计划中。长时间存在的 Agent 不必持续占用执行资源，身份和出口控制也不应由模型自行管理。<a target="_blank" rel="noopener" href="https://cloud.google.com/blog/topics/ai-infrastructure/agent-compute-engine-deep-dive">架构说明</a></li>
+<li><strong>10-27 跟踪｜RCAtlas 与 Project Fortify。</strong> 前者比较自由调查与手工编排；后者把漏洞发现、验证、候选补丁与受控发布连起来。Fortify 原文日期为 <strong>10-27</strong>，修正早期摘要中的 10-26；其材料未给出端到端 MTTR 改善量。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.35767">RCAtlas</a>、<a target="_blank" rel="noopener" href="https://cloud.google.com/transform/how-google-does-it-using-agents-help-find-track-and-fix-vulnerabilities">Fortify</a></li>
+<li><strong>10-27 补充｜跨 Terraform State 调查。</strong> AWS 演示通过告警、资源依赖和 CloudTrail 追踪安全组修改。它是可复现实验教程，应与生产效果报告分开。<a target="_blank" rel="noopener" href="https://aws.amazon.com/blogs/devops/tracing-failures-across-terraform-state-boundaries-with-aws-devops-agent/">实验说明</a></li>
+<li><strong>10-28—29 跟踪｜Exowatt、Virtana 与 ServiceNow。</strong> 分别补充窄任务小模型、跨 Agent 协作和受治理执行，详见本周摘要。</li>
+</ul>
+<p><strong>累计判断：</strong> 检测、调查、执行、验收各有不同的可靠性要求。领域知识与调查自由并不冲突；真正需要固定的是访问边界、证据契约和恢复验收条件。</p>
+<p><a id="android"></a></p>
+<h2 id="二、Android-可观测性：先保证证据没有失真"><a href="#二、Android-可观测性：先保证证据没有失真" class="headerlink" title="二、Android 可观测性：先保证证据没有失真"></a>二、Android 可观测性：先保证证据没有失真</h2><h3 id="官方工具与采集链的历史"><a href="#官方工具与采集链的历史" class="headerlink" title="官方工具与采集链的历史"></a>官方工具与采集链的历史</h3><ul>
+<li><strong>09-08 源码审阅｜Android Profiler Skill。</strong> 以入口路由采集与分析工作流，先检查数据质量，再分解线程 Running／Runnable／Sleeping／D 状态，沿阻塞依赖追踪，报告事实、推断和证据缺口。收益是规范分析过程；它不等于新的常驻采集器。<a target="_blank" rel="noopener" href="https://github.com/android/skills/tree/main/profilers/android-profiler">官方 Skill</a></li>
+<li><strong>09-11 跟踪｜OpenTelemetry Android 1.7.0。</strong> 修正崩溃处理链中的刷新顺序、保留事件原有会话关联；重点是避免重启后补报归入错误 session。<a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-android/releases/tag/v1.7.0">版本说明</a></li>
+<li><strong>10-02 跟踪｜Profiler Skill 的工具引导器。</strong> 将 Perfetto 工具准备从临时操作变成可复用步骤。采集格式与分析器版本仍需匹配，不能把环境准备成功视为诊断正确。<a target="_blank" rel="noopener" href="https://github.com/android/skills/commit/400ee93">更新提交</a></li>
+<li><strong>10-16 跟踪｜Profiler Skill v1.0.15。</strong> 进一步明确症状路由、标准库使用和证据化分析，重点仍是工作流可靠性。<a target="_blank" rel="noopener" href="https://github.com/android/skills/releases/tag/v1.0.15">版本说明</a></li>
+<li><strong>10-23 跟踪｜OpenTelemetry Android 1.8.0。</strong> Native crash 记录按进程启动隔离，重启后回放故障时上下文。模块仍处 development；<strong>不包含 native 栈采集</strong>，至多一次回放也意味着导出前退出可能丢事件。<a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-android/blob/v1.8.0/instrumentation/native-crash/README.md">持久化协议与限制</a></li>
+<li><strong>10-23 跟踪｜独立 ANR Skill。</strong> <code>anr-audit-and-fix</code> 将源码风险与 ANR trace 调查连接起来，强调应用缺陷、资源过载、外部瓶颈的区分。静态风险和运行时根因需要不同证据。<a target="_blank" rel="noopener" href="https://github.com/android/skills/releases/tag/v1.0.16">v1.0.16</a>、<a target="_blank" rel="noopener" href="https://developer.android.com/agents/skills/performance/anr-audit-and-fix/references/trace_analysis_guide">分析指南</a></li>
+<li><strong>10-30 跟踪｜Perfetto v59.1 与 Android CLI 1.1。</strong> 系统侧跨重启保留、生产侧故障检索同时增强。Rabbit 2 的 LeakCanary／Agent 集成还把引用链调查接到开发环境；版本发布没有附带可外推的自动修复准确率。<a target="_blank" rel="noopener" href="https://github.com/google/perfetto/releases/tag/v59.1">Perfetto</a>、<a target="_blank" rel="noopener" href="https://developer.android.com/tools/agents/android-cli/release-notes">CLI</a>、<a target="_blank" rel="noopener" href="https://developer.android.com/studio/releases">Rabbit 2</a></li>
+</ul>
+<h3 id="研究历史：哪些机制值得迁移"><a href="#研究历史：哪些机制值得迁移" class="headerlink" title="研究历史：哪些机制值得迁移"></a>研究历史：哪些机制值得迁移</h3><p>以下研究大多来自云、微服务、Agent 或 GPU 系统；对 Android 的意义是方法参考，实验结果保留在其原场景内。</p>
+<ul>
+<li><strong>09-11｜故障注入覆盖。</strong> LLM 注入与规则注入表现出不同故障分布；不能只用明显 crash 验证诊断器，还应覆盖静默失败和跨组件传播。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.08681">OpenStack 对照研究</a></li>
+<li><strong>09-18｜长轨迹 RCA 与预测校准。</strong> Continual Search 将诊断视为逐轮寻找未检查证据；TriCalRAG 则提醒异常检测分数可能掩盖预测偏置，生成的根因解释并未得到同等评估。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.13463">Continual Search</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.14762">TriCalRAG</a></li>
+<li><strong>09-25｜稀有日志、取证范围与先验基线。</strong> TAILOR 单独检查长尾模板；TriFleetRCA 比较 pod／namespace／cluster 取证范围，并区分结论和引用质量；RCAEval 审计发现不读取遥测的候选先验也可能取得很高 Top-5。三者共同要求检查证据与评测的盲区。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.25261">TAILOR</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.23766">TriFleetRCA</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.27069">图结构对照研究</a></li>
+<li><strong>10-02｜候选召回与独立记录。</strong> DecompRCA 把“根因没进入候选集”与“进入后排序错误”分开；Hearsay 说明由被审计系统自行书写的日志不足以独立证明执行过程。先保留决定性证据，再谈重排与推理。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.36686">DecompRCA</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.32495">Hearsay</a></li>
+<li><strong>10-09｜运行时遥测与日志关联。</strong> TeleGen 在生成、执行、修复之间加入运行时证据；LOGOS 通过实体—事件关系和时间先后压缩故障传播线索。两者都需要原始采集输入，不能据此证明只保留少量事件就一定能还原故障。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.04981">TeleGen</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.02297">LOGOS</a></li>
+<li><strong>10-16｜工单检索与身份保留。</strong> InsightTriage 研究联合工单与日志的车载故障分诊；GPU 日志研究显示解析模板可能丢掉参与者身份与完成状态。对端侧压缩，PID&#x2F;TID、会话代次和事务关联应作为有类型的字段保留。<a target="_blank" rel="noopener" href="https://nkcs.iops.ai/publications/">作者论文目录</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.14009">日志解析研究</a></li>
+<li><strong>10-23｜Diviner。</strong> 版本化诊断知识、失败查询语义和历史回放见 Agentic SRE 专题，避免重复计数。</li>
+<li><strong>10-30｜RCAtlas 与 SFlexRCA。</strong> RCAtlas 见本周摘要；SFlexRCA 在 IIoT 数据与 Raspberry Pi 上评估轻量遥测建模，可作为候选预筛选参考。其无拓扑残差排名不等于恢复真实因果图。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.04893">SFlexRCA</a></li>
+</ul>
+<p><strong>累计判断：</strong> 稀疏取证的关键不是简单缩小日志体积，而是保住身份、关系、状态转换和失败语义。端侧筛选、候选召回与云端推理应分别评价，避免把上游证据丢失算成模型能力不足。</p>
+<p><a id="lpc"></a></p>
+<h2 id="三、LPC-2026：把低成本观测转化为可解释证据"><a href="#三、LPC-2026：把低成本观测转化为可解释证据" class="headerlink" title="三、LPC 2026：把低成本观测转化为可解释证据"></a>三、LPC 2026：把低成本观测转化为可解释证据</h2><p>完整议题地图、已有图件和 Slides 索引继续保留在 <a href="/2026/10/08/lpc-2026-sre-observability/">LPC 2026 SRE／可观测性专题</a>。这里记录时间线与后续增量。</p>
+<ul>
+<li><strong>10-08—09｜初版与首轮 Slides。</strong> 22 项议题按健康度、证据采集、跨层关联、在线状态、AI 诊断及恢复组织；补入 CoreWeave 已知 panic 前置去重、Meta 稀有故障统计、drgn 的 RT 停滞链和 CRIU&#x2F;RDMA 对象恢复。技术细节与固定来源见上述专题。</li>
+<li><strong>10-10｜动态缓解和对象级观测。</strong> shirudo 把 Agent 生成的 BPF 检测／缓解程序接入验证、签名与部署；GPU 增量 checkpoint 说明体积和暂停时间是不同优化目标；Cloudflare 按目标 skb 选择跟踪范围；CRIU 的 BPF 状态恢复提醒“进程恢复”不代表设备访问策略也恢复。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2437/attachments/2170/4833/shirudo.pdf">shirudo Slides</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2603/attachments/2260/4950/LPC-2026-Enabling-Incremental-Checkpointing-for-GPU-Workloads.pdf">GPU Slides</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2549/">Cloudflare</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2606/">BPF 恢复</a></li>
+<li><strong>10-14｜Forensic Checkpointing。</strong> Soft-dirty 只能告诉我们页面是否被写过，不能恢复写入次数、顺序或“修改后又恢复”的中间状态。首次写入上下文与代次记录是设计方向，公开材料尚未给出完整开销验证。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2607/attachments/2243/4927/Memor_tracking_LPC2026_Slides.pdf">官方 Slides</a></li>
+<li><strong>10-17｜LPC 讲者的会后相关研究。</strong> Yusheng Zheng 的 10-16 IPADS 分享讨论 AgentSight、AgentPProf、AgentCgroup 与运行时扩展。已发布专题核读的讲义为 <strong>21 页</strong>，题名为 <em>Co-evolving OS Infrastructure with Agents through Runtime Extensions</em>；采用该核验版本，而非早期摘要中的 25 页记录。<a href="/2026/10/08/lpc-2026-sre-observability/">已核验分析</a></li>
+<li><strong>10-20—21｜录像入口补齐。</strong> Brendan Gregg、CoreWeave、Meta、drgn + AI 等报告的录像入口已纳入既有专题。确认入口可用的日期不等于录像上传日期，Slides 结论也不冒充逐段观看结果。</li>
+<li><strong>10-29｜sched_ext 会后总结。</strong> 新增 Proxy Execution、持锁者／等待者调度延迟及跨 VM 调度协同。接口和观测缺口仍在演进，详见本周摘要。<a target="_blank" rel="noopener" href="https://lpc.events/blog/current/index.php/2026/10/28/the-sched_exit-microconference/">10-28 官方总结</a></li>
+<li><strong>10-30｜无新增跟踪条目。</strong> 该轮未确认优先议题的实质新材料，不重复发布旧 Slides 或录像。</li>
+</ul>
+<p><strong>累计判断：</strong> 固定预算下优先记录决定因果判断的事件：对象身份、关键状态变化、等待关系、调度上下文与独立恢复检查。</p>
+<p><a id="coding"></a></p>
+<h2 id="四、Android／Chromium-AI-Coding：从提示词走向工程契约"><a href="#四、Android／Chromium-AI-Coding：从提示词走向工程契约" class="headerlink" title="四、Android／Chromium AI Coding：从提示词走向工程契约"></a>四、Android／Chromium AI Coding：从提示词走向工程契约</h2><p>此项历史跟踪在 9 月中旬形成了一组相互关联的工程观察，随后出现暂停提示。</p>
+<ul>
+<li><strong>09-08｜Perfetto Agent Eval。</strong> 在隔离工作区中比较有／无 Skill、不同工具输出和模型，加入不应触发 Skill 的负例及没有异常的 trace。它评估的是实际效果与成本，而不是说明文档是否看起来完整。<a target="_blank" rel="noopener" href="https://github.com/google/perfetto/blob/main/ai/evals/README.md">评测说明</a></li>
+<li><strong>09-09｜只记住开发者确认过的选择。</strong> Chromium 的 <code>cl-description</code> 引入 checkout 本地历史，复用已确认的组件标签和 bug。工程记忆应有来源和作用域，不能把模型猜测自动写成组织事实。<a target="_blank" rel="noopener" href="https://chromium.googlesource.com/chromium/agents/+/4e0a8bacdfcc6b6303540aa466b05a508f349486">固定提交</a></li>
+<li><strong>09-11 后｜条件触发规则。</strong> Chromium 对 Rust 文件按 glob 加载互操作规则，避免模型手写不合约定的 FFI；该机制让通用入口与局部工程知识分开。<a target="_blank" rel="noopener" href="https://github.com/chromium/chromium/commit/44f6cec9da52a91913eaac6d8019cb4ac38c2125">Rust 规则提交</a></li>
+<li><strong>09-14—16｜任务状态和工具边界。</strong> Android Studio 提交 Guided Planning 进度 UI 的功能开关；DevTools 则把 origin lock 检查加到生成回复中的文件链接解析路径，来源缺失、不透明或不匹配时拒绝解析。前者是开发中的功能控制，后者是明确的授权修复。<a target="_blank" rel="noopener" href="https://android.googlesource.com/platform/tools/adt/idea/+/e604e431852ec4c2cc316c85fe021dae224f6b5b">Planning 提交</a>、<a target="_blank" rel="noopener" href="https://chromium.googlesource.com/devtools/devtools-frontend.git/+/5bd23ba7a419dbcf4c83332018f0135e2b64db6e">链接解析修复</a></li>
+<li><strong>09-17｜证据来源不等于访问权限。</strong> DevTools 修复 DWARF 中 source URL 可被用来错误推导 origin 的路径。安全域改从运行时可信来源取得，并按 origin 划分资源。这说明文件名、符号路径和日志字符串可以作为分析线索，却不应决定 Agent 的访问授权。<a target="_blank" rel="noopener" href="https://chromium.googlesource.com/devtools/devtools-frontend/+/1c62802e20f9c8dba2a6f0a0557eb8a1f23db9d7">固定修复提交</a></li>
+<li><strong>09-18｜Pigweed <code>pw_ghish</code>。</strong> 将 Agent 熟悉的 <code>gh pr</code>／<code>gh run</code> 语法映射到 Gerrit 与 LUCI，保留评审和 CI 的实际语义；行为评测还检查失败处理、草稿评论和安全流程。它属于 Pigweed 工程实践，不能等同于 Chromium 主仓全面采用。<a target="_blank" rel="noopener" href="https://pigweed.dev/pw_ghish/subcommands.html">命令说明</a>、<a target="_blank" rel="noopener" href="https://pigweed.googlesource.com/pigweed/pigweed/+/main/pw_ghish/agent_eval.rst">行为评测入口</a></li>
+</ul>
+<p><strong>累计判断：</strong> 可维护的 Agent 工程由按需知识、稳定工具接口、显式授权及行为评测共同构成。重复讲解同一规则时，应先判断能否由已有工具直接保证，而不是持续加长提示词。</p>
+<p><a id="skills"></a></p>
+<h2 id="五、自演进工作流／Skill：把经验变成可撤回的改进"><a href="#五、自演进工作流／Skill：把经验变成可撤回的改进" class="headerlink" title="五、自演进工作流／Skill：把经验变成可撤回的改进"></a>五、自演进工作流／Skill：把经验变成可撤回的改进</h2><p>该专题的已有讨论停留在研究整理和设计层面。本期没有获得可证明新实现或新运行效果的记录，因此历史建议与论文成果分开列出。</p>
+<h3 id="研究脉络与版本变化"><a href="#研究脉络与版本变化" class="headerlink" title="研究脉络与版本变化"></a>研究脉络与版本变化</h3><ul>
+<li><strong>05-25 首版，09-25 修订｜CODESKILL。</strong> 从 coding trajectory 中提炼多粒度程序性知识，将技能提取、演进和紧凑技能库维护作为可学习策略。不同版本的指标已发生变化；引用时应固定论文版本，不混用摘要数值。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.25430">论文与版本记录</a></li>
+<li><strong>05-28 首版，10-21 v3｜EvoRepair。</strong> 循环检索历史修复经验、提取新经验并进行质量评分。最新题名为 <em>Learning from Repair Experience: Self-Evolving Agents for Automated Vulnerability Repair</em>。结果来自漏洞修复基准，不直接代表 Crash／Freeze 诊断收益。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.30105">论文与版本记录</a></li>
+<li><strong>09-10 首版，09-20 v2｜Ecdysis。</strong> 先跨任务汇聚失败，区分模型局限与 Harness 的系统性缺陷，再决定持久化修改。一次失败并不足以成为新增通用规则的理由。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.11677">论文</a></li>
+<li><strong>09-14｜THEMIS。</strong> 保留从需求解释、代码关系、修复理由到修改后审计的可观察轨迹。论文的对照同时改变多个流程组件，因此只支持流程级证据，不能把提升全部归因于某个图结构。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.14913">论文</a></li>
+</ul>
+<h3 id="已有设计讨论形成的最小闭环"><a href="#已有设计讨论形成的最小闭环" class="headerlink" title="已有设计讨论形成的最小闭环"></a>已有设计讨论形成的最小闭环</h3><ol>
+<li><strong>记录案例和纠正。</strong> 保存输入、工具结果、判断依据，以及开发者纠正了哪条结论、补充了什么证据。</li>
+<li><strong>跨案例归纳。</strong> 找重复失败模式；把特定版本经验、可复用流程和确定性检查分开，不自动把个例升格为规则。</li>
+<li><strong>回放比较。</strong> 对同一批案例比较根因、证据支持、误诊、耗时和人工纠正成本；新案例改善的同时检查旧案例退化。</li>
+<li><strong>审核与撤回。</strong> 修改说明关联原始案例、适用范围和回放结果；批准后再发布，记录版本，使有问题的经验能够撤回。</li>
+</ol>
+<p>这组设计的首要价值是让“为什么改、改后是否更好、出了问题如何撤回”都能回答。</p>
+<h2 id="更新记录"><a href="#更新记录" class="headerlink" title="更新记录"></a>更新记录</h2><ul>
+<li><strong>2026-10-31：首次发布。</strong> 建立五项跟踪入口，补入可核验的历史里程碑与 10 月 24—30 日增量；跨专题合并 Diviner、RCAtlas、Perfetto 等重复成果；更正原文日期、版本与讲义页数。</li>
+<li><strong>后续：每周五北京时间 12:00。</strong> 保留历史，补充新增和结论修订；没有新增时明确记录，不重复计数。</li>
+</ul>
+</section>
+    <footer class="post-footer">
+      <section class="author"><h4>MapleStory.zeng</h4><p>A fresh Programer, now working on Android Frameworks.</p></section>
+      <section class="share"><h4>Share this post</h4>
+        <a class="icon-twitter" target="_blank" rel="noopener" href="https://twitter.com/share?url=https%3A%2F%2Fmaplestorys.github.io%2F2026%2F10%2F31%2Ftechnical-tracking-weekly%2F"><span class="hidden">Twitter</span></a>
+        <a class="icon-facebook" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fmaplestorys.github.io%2F2026%2F10%2F31%2Ftechnical-tracking-weekly%2F"><span class="hidden">Facebook</span></a>
+      </section>
+    </footer>
+  </article>
+  <nav class="pagination" role="pagination">
+    
+    <span class="page-number">•</span>
+    <a class="older-posts" href="/2026/10/08/lpc-2026-sre-observability/">LPC 2026 的 SRE 与可观测性：从采集更多数据，走向可验证的诊断证据 →</a>
+  </nav>
+  <div id="comment" class="comments-area"><h1 class="title"><a href="#disqus_comments" name="disqus_comments">Comments</a></h1></div>
+</main>
+
+  <footer class="site-footer"><div class="inner">
+    <section class="copyright">All content copyright <a href="/">MapleStory</a> &copy; 2014 &bull; All rights reserved.</section>
+    <section class="poweredby">Proudly published with <a class="icon-ghost" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a></section>
+  </div></footer>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="/js/jquery.fitvids.js"></script>
+  <script src="/js/index.js"></script>
+</body>
+</html>

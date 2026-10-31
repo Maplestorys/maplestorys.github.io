@@ -21,11 +21,22 @@
 
   <article class="post">
     <header class="post-header">
+      <span class="post-meta"><time datetime="2026-10-31T01:00:00.000Z" itemprop="datePublished">2026-10-31</time></span>
+      <h2 class="post-title"><a href="/2026/10/31/technical-tracking-weekly/">技术跟踪周报：Agentic SRE、Android 可观测性与 AI 工程</a></h2>
+    </header>
+    <section class="post-excerpt">
+      <p>首期历史回溯：汇集五条技术跟踪线，串联可验证诊断、端侧证据、Agent 工程与 Skill 演进；新增 Perfetto v59.1、RCAtlas、Exowatt 和 sched_ext 会后进展。每周五更新。</p>
+      <p><a href="/2026/10/31/technical-tracking-weekly/" class="excerpt-link">Read More...</a></p>
+    </section>
+  </article>
+
+  <article class="post">
+    <header class="post-header">
       <span class="post-meta"><time datetime="2026-10-08T04:00:00.000Z" itemprop="datePublished">2026-10-08</time></span>
       <h2 class="post-title"><a href="/2026/10/08/lpc-2026-sre-observability/">LPC 2026 的 SRE 与可观测性：从采集更多数据，走向可验证的诊断证据</a></h2>
     </header>
     <section class="post-excerpt">
-      <p>10 月 21 日更新：补齐 LPC 官方录像入口，分析 Grafana Watchers／沙箱修复的新发布，并补读 Forensic Checkpointing 与 Incident-Arena，连接故障证据、候选修复和双门禁验收。</p>
+      <p>10 月 31 日更新：增补 sched_ext 会后讨论中的锁等待、调度延迟与 Proxy Execution 观测缺口；保留官方 Slides、录像及 Agentic SRE 分析，并接入五项技术跟踪周报。</p>
       <p><a href="/2026/10/08/lpc-2026-sre-observability/" class="excerpt-link">Read More...</a></p>
     </section>
   </article>
@@ -122,17 +133,6 @@ Q版本相关的成员ViewRootImplWindowManagerServiceSurfaceFlingerInputDispatc
     <section class="post-excerpt">
       <p>错误恢复模式（参考书籍Patterns For Fault Tolerant Software第6章）：1.故障隔离（Quarantine）对故障的服务或者设备进行隔离，例如代理其提供的服务2.集中恢复（Concentrated Recovery）对重要恢复有显著的用户提示，避免误操作导致无法恢复的错误3.Error Handler错误处理器，例如UncautghtExceptionHandler4.重启重启进程，进程组或系统5.回滚返</p>
       <p><a href="/2019/09/25/%E7%9B%91%E6%8E%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E7%AE%A1%E7%90%86-3/" class="excerpt-link">Read More...</a></p>
-    </section>
-  </article>
-
-  <article class="post">
-    <header class="post-header">
-      <span class="post-meta"><time datetime="2019-09-23T06:03:34.000Z" itemprop="datePublished">2019-09-23</time></span>
-      <h2 class="post-title"><a href="/2019/09/23/%E7%9B%91%E6%8E%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E7%AE%A1%E7%90%86-2/">监控与故障管理(2)</a></h2>
-    </header>
-    <section class="post-excerpt">
-      <p>监控运行实体：无论对于系统监控抑或应用监控，监控应该在部署在任意可能出现问题的位置。如driver、kernel、service、framework以及应用本身。监控可以是异常处理代码中的一段日志，也可以是很长逻辑结果的一个校验。可以是重要事件的记录，也可以是当前状态的记录。可以运行在当前执行线程中，也可以是线程外甚至进程外。如果能够在任意两行代码之间记录日志，我们便能够通过日志找到任意两行之间的问题。综合性能的考虑，监控的目标是在尽可</p>
-      <p><a href="/2019/09/23/%E7%9B%91%E6%8E%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E7%AE%A1%E7%90%86-2/" class="excerpt-link">Read More...</a></p>
     </section>
   </article>
 
