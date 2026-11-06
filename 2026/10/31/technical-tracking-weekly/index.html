@@ -21,7 +21,7 @@
   <article class="post">
     <span class="post-meta"><time datetime="2026-10-31T01:00:00.000Z" itemprop="datePublished">2026-10-31</time></span>
     <h1 class="post-title">技术跟踪周报：Agentic SRE、Android 可观测性与 AI 工程</h1>
-    <section class="post-content"><p><strong>更新于 2026-10-31 · 每周五北京时间 12:00 汇总</strong></p>
+    <section class="post-content"><p><strong>更新于 2026-11-06 · 每周五北京时间 12:00 汇总</strong></p>
 <p>五条跟踪线正在汇合到同一个问题：<strong>怎样让 Agent 获得足够的故障证据，采取受控行动，并用独立检查证明结果有效？</strong> 本页保留历史里程碑，在顶部增补每周变化。同一成果跨专题出现时只展开一次。</p>
 <p>首期回溯已取得并可核验的 2026 年 9—10 月跟踪记录；Skill 专题同时补入相关论文的早期版本脉络。下面的“跟踪日期”表示当时收录时间，不等于材料首发日期。仅有历史摘要、尚不能重新核对的细节不作为已确认成果。</p>
 <h2 id="五项跟踪概览"><a href="#五项跟踪概览" class="headerlink" title="五项跟踪概览"></a>五项跟踪概览</h2><style>
@@ -44,22 +44,22 @@
 <tbody><tr>
 <td><a href="#sre">Agentic SRE 进展</a></td>
 <td>10 月 29 日</td>
-<td>通用 RCA 对照实验、端侧小模型、跨 Agent 协作与受治理执行</td>
+<td>本周未取得新的跟踪条目；相关 RCA 研究统一收录在本期摘要</td>
 </tr>
 <tr>
 <td><a href="#android">Android可观测进展</a></td>
-<td>10 月 30 日</td>
-<td>跨重启 trace、生产故障查询接口与 ANR 分析工作流</td>
+<td>11 月 6 日</td>
+<td>新增 3 项工具／案例与 1 项 RCA 研究，见<a href="#week-2026-11-06">本周摘要</a></td>
 </tr>
 <tr>
 <td><a href="#lpc">LPC 2026 SRE 跟踪</a></td>
-<td>10 月 29 日；30 日检查无新增</td>
-<td>sched_ext 会后总结；保留早期 Slides 与录像索引</td>
+<td>11 月 5 日复查</td>
+<td>11 月 2、3、5 日均未确认实质新增；保留已有材料</td>
 </tr>
 <tr>
 <td><a href="#coding">Android&#x2F;Chromium AI Coding</a></td>
 <td>9 月 18 日</td>
-<td>回溯评测、上下文权限和 Gerrit&#x2F;LUCI 工具适配；原跟踪有暂停记录</td>
+<td>本周无新条目；原跟踪有暂停记录，历史内容保留</td>
 </tr>
 <tr>
 <td><a href="#skills">自演进工作流&#x2F;Skill</a></td>
@@ -69,7 +69,19 @@
 </tbody></table>
 </div>
 
-<p>Android 可观测性历史中也出现过暂停提示，但其后仍有 10 月 30 日更新。这里按实际收到的内容记账，不据此推断原定时任务当前是否启用。</p>
+<p>Android 可观测性历史中也出现过暂停提示，但其后仍有 11 月 6 日更新。这里按实际收到的内容记账，不据此推断原定时任务当前是否启用。</p>
+<p><a id="week-2026-11-06"></a></p>
+<h2 id="2026-11-06：先保证观测可靠，再改进诊断"><a href="#2026-11-06：先保证观测可靠，再改进诊断" class="headerlink" title="2026-11-06：先保证观测可靠，再改进诊断"></a>2026-11-06：先保证观测可靠，再改进诊断</h2><p>本期汇总 <strong>10 月 31 日至 11 月 6 日北京时间 12:00</strong> 已取得的跟踪记录。新增 <strong>4 项</strong>，均来自 Android 可观测性跟踪，其中 1 项为可迁移的微服务 RCA 研究。LPC 有复查记录但未确认实质新增；另外三项未取得新条目，历史内容继续保留。</p>
+<h3 id="1-OpenTelemetry-Android-1-8-1：避免监控代码成为故障源"><a href="#1-OpenTelemetry-Android-1-8-1：避免监控代码成为故障源" class="headerlink" title="1. OpenTelemetry Android 1.8.1：避免监控代码成为故障源"></a>1. OpenTelemetry Android 1.8.1：避免监控代码成为故障源</h3><p>官方 Release 标注 <strong>11 月 5 日</strong>发布，修复慢渲染埋点在 <strong>Android 8–11（API 26–30）且未启用 core library desugaring</strong> 时调用 <code>Duration.toSeconds()</code> 引发的 <code>NoSuchMethodError</code>。另一个修复避免 <code>Services</code> 保留非 Application Context，并在关闭时重置单例，让 SDK 再初始化后的生命周期跟踪恢复工作。<a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-android/releases/tag/v1.8.1">发布说明</a></p>
+<p><strong>已接入团队优先核对上述系统版本、构建配置和再初始化路径。</strong> 这次增量是采集 SDK 的兼容性与生命周期修复。</p>
+<h3 id="2-Sentry：Android-15-转向系统侧-Perfetto-采样"><a href="#2-Sentry：Android-15-转向系统侧-Perfetto-采样" class="headerlink" title="2. Sentry：Android 15+ 转向系统侧 Perfetto 采样"></a>2. Sentry：Android 15+ 转向系统侧 Perfetto 采样</h3><p><strong>11 月 2 日工程文章</strong>说明，Android SDK <strong>8.51.0</strong> 起通过 <code>ProfilingManager</code> 使用 Perfetto 采样；Android 15 以下仍保留旧 profiler，可用 <code>enableLegacyProfiling</code> 关闭旧路径。新路径避开 ART method tracer 的一类崩溃风险，也支持导出原始 trace。<a target="_blank" rel="noopener" href="https://blog.sentry.io/android-profilingmanager-perfetto/">Sentry 原文</a></p>
+<p>厂商报告 CPU／内存开销降低，但未给出量化数据。<strong>系统会限频且不保证每次请求都执行</strong>，所以采样率设为 100% 也不等于每个会话都有 profile。评估持续采样时，应把请求成功率和缺失会话一起记录。</p>
+<h3 id="3-Android-OOM-案例：补全崩溃后的证据交付链"><a href="#3-Android-OOM-案例：补全崩溃后的证据交付链" class="headerlink" title="3. Android OOM 案例：补全崩溃后的证据交付链"></a>3. Android OOM 案例：补全崩溃后的证据交付链</h3><p>官方案例页面更新于 <strong>11 月 4 日 UTC</strong>，首发日期未标明。它针对 <strong>Android 17（API 37）及以上的未捕获 Java <code>OutOfMemoryError</code></strong>，串联 OOM 触发 heap dump、下次启动接收、匹配版本的 R8 反混淆、引用链定位与修复验证，并展示 Agent 查询 dominator tree 的示例。<a target="_blank" rel="noopener" href="https://developer.android.com/topic/performance/tracing/profiling-manager/debugging-oom-example">完整案例</a></p>
+<p>两处集成条件决定能否拿到证据：<strong>结果监听器必须每次启动注册</strong>；自定义未捕获异常处理器必须委托默认处理器，不能提前退出进程。本案例的捕获条件不覆盖所有 native OOM 或系统杀进程；Agent 查询示例也没有提供诊断准确率评测。</p>
+<h3 id="4-小模型-RCA：给异常信号补上正常基线"><a href="#4-小模型-RCA：给异常信号补上正常基线" class="headerlink" title="4. 小模型 RCA：给异常信号补上正常基线"></a>4. 小模型 RCA：给异常信号补上正常基线</h3><p><em>Fault-Free Profiles and Decision-Level Training for Root Cause Analysis via Small Language Models</em> 的 <strong>11 月 3 日 v2</strong>，把信号在无故障期间被判为异常的频率加入证据，并用偏好训练纠正最终选因偏差。作者在 Bank 数据集报告 4B 模型严格匹配准确率 <strong>48.7%</strong>，对照 OpsAgent-14B 为 <strong>18.5%</strong>；每个故障独立采样 8 次并取平均分，并非 8 次中选最佳结果。<a target="_blank" rel="noopener" href="https://arxiv.org/html/2611.02416v2">论文 v2</a></p>
+<p>实验的正常窗口来自故障前后两侧，时延在 <strong>NVIDIA L40S</strong> 上测量。只用过去数据的在线效果、手机端资源成本仍待验证。<strong>迁移推断：</strong> 对 GC、Binder 等待或 I&#x2F;O 波动，先标明其在正常运行时有多常见，可能帮助减少把常见波动当根因的误判。</p>
+<p><strong>本期阅读顺序：</strong> 已接入 OpenTelemetry 的团队先查补丁；应用诊断团队优先读 OOM 案例；研究团队再看正常基线与决策训练。四项共同提醒：采集器稳定性、结果交付和证据背景，都会影响最终诊断质量。</p>
+<p><a id="week-2026-10-31"></a></p>
 <h2 id="2026-10-31-首期：本周值得优先读什么"><a href="#2026-10-31-首期：本周值得优先读什么" class="headerlink" title="2026-10-31 首期：本周值得优先读什么"></a>2026-10-31 首期：本周值得优先读什么</h2><p>本周窗口为 <strong>10 月 24—30 日</strong>，10 月 31 日完成首发及历史补录。</p>
 <h3 id="1-RCA：先给模型调查自由，再判断是否需要固定流程"><a href="#1-RCA：先给模型调查自由，再判断是否需要固定流程" class="headerlink" title="1. RCA：先给模型调查自由，再判断是否需要固定流程"></a>1. RCA：先给模型调查自由，再判断是否需要固定流程</h3><p>10 月 26 日提交的 <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.35767">Free to Look, Free to Reason</a> 在 RCAtlas 的 <strong>90 个有效故障案例</strong>上比较三种简单 Harness、五种专用 RCA Agent 及统计／因果方法。在三个中档模型上，简单 Harness 的 PR@1 为 <strong>65%—77%</strong>，专用 Agent 为 <strong>16%—53%</strong>。案例分析显示，固定步骤可能跳过决定性证据。</p>
 <p>这是微服务基准结果。对诊断流程的直接启发是：<strong>把领域知识做成可调用的指导，不要在缺乏对照实验时把调查顺序固化。</strong> 与 Diviner 的领域知识实践合起来看，应比较“自由调查”“可选 Skill”“固定流程”，而不是只比较模型或 Agent 数量。</p>
@@ -96,29 +108,48 @@
 <li><strong>10-24 跟踪｜Google Agent Compute Engine。</strong> 10-23 的架构文章介绍硬件隔离 microVM、暂停／恢复及外置凭证处理。对外预览仍在计划中。长时间存在的 Agent 不必持续占用执行资源，身份和出口控制也不应由模型自行管理。<a target="_blank" rel="noopener" href="https://cloud.google.com/blog/topics/ai-infrastructure/agent-compute-engine-deep-dive">架构说明</a></li>
 <li><strong>10-27 跟踪｜RCAtlas 与 Project Fortify。</strong> 前者比较自由调查与手工编排；后者把漏洞发现、验证、候选补丁与受控发布连起来。Fortify 原文日期为 <strong>10-27</strong>，修正早期摘要中的 10-26；其材料未给出端到端 MTTR 改善量。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.35767">RCAtlas</a>、<a target="_blank" rel="noopener" href="https://cloud.google.com/transform/how-google-does-it-using-agents-help-find-track-and-fix-vulnerabilities">Fortify</a></li>
 <li><strong>10-27 补充｜跨 Terraform State 调查。</strong> AWS 演示通过告警、资源依赖和 CloudTrail 追踪安全组修改。它是可复现实验教程，应与生产效果报告分开。<a target="_blank" rel="noopener" href="https://aws.amazon.com/blogs/devops/tracing-failures-across-terraform-state-boundaries-with-aws-devops-agent/">实验说明</a></li>
-<li><strong>10-28—29 跟踪｜Exowatt、Virtana 与 ServiceNow。</strong> 分别补充窄任务小模型、跨 Agent 协作和受治理执行，详见本周摘要。</li>
+<li><strong>10-28—29 跟踪｜Exowatt、Virtana 与 ServiceNow。</strong> 分别补充窄任务小模型、跨 Agent 协作和受治理执行，详见 <a href="#week-2026-10-31">10 月 31 日摘要</a>。</li>
 </ul>
 <p><strong>累计判断：</strong> 检测、调查、执行、验收各有不同的可靠性要求。领域知识与调查自由并不冲突；真正需要固定的是访问边界、证据契约和恢复验收条件。</p>
 <p><a id="android"></a></p>
 <h2 id="二、Android-可观测性：先保证证据没有失真"><a href="#二、Android-可观测性：先保证证据没有失真" class="headerlink" title="二、Android 可观测性：先保证证据没有失真"></a>二、Android 可观测性：先保证证据没有失真</h2><h3 id="官方工具与采集链的历史"><a href="#官方工具与采集链的历史" class="headerlink" title="官方工具与采集链的历史"></a>官方工具与采集链的历史</h3><ul>
-<li><strong>09-08 源码审阅｜Android Profiler Skill。</strong> 以入口路由采集与分析工作流，先检查数据质量，再分解线程 Running／Runnable／Sleeping／D 状态，沿阻塞依赖追踪，报告事实、推断和证据缺口。收益是规范分析过程；它不等于新的常驻采集器。<a target="_blank" rel="noopener" href="https://github.com/android/skills/tree/main/profilers/android-profiler">官方 Skill</a></li>
-<li><strong>09-11 跟踪｜OpenTelemetry Android 1.7.0。</strong> 修正崩溃处理链中的刷新顺序、保留事件原有会话关联；重点是避免重启后补报归入错误 session。<a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-android/releases/tag/v1.7.0">版本说明</a></li>
-<li><strong>10-02 跟踪｜Profiler Skill 的工具引导器。</strong> 将 Perfetto 工具准备从临时操作变成可复用步骤。采集格式与分析器版本仍需匹配，不能把环境准备成功视为诊断正确。<a target="_blank" rel="noopener" href="https://github.com/android/skills/commit/400ee93">更新提交</a></li>
-<li><strong>10-16 跟踪｜Profiler Skill v1.0.15。</strong> 进一步明确症状路由、标准库使用和证据化分析，重点仍是工作流可靠性。<a target="_blank" rel="noopener" href="https://github.com/android/skills/releases/tag/v1.0.15">版本说明</a></li>
-<li><strong>10-23 跟踪｜OpenTelemetry Android 1.8.0。</strong> Native crash 记录按进程启动隔离，重启后回放故障时上下文。模块仍处 development；<strong>不包含 native 栈采集</strong>，至多一次回放也意味着导出前退出可能丢事件。<a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-android/blob/v1.8.0/instrumentation/native-crash/README.md">持久化协议与限制</a></li>
-<li><strong>10-23 跟踪｜独立 ANR Skill。</strong> <code>anr-audit-and-fix</code> 将源码风险与 ANR trace 调查连接起来，强调应用缺陷、资源过载、外部瓶颈的区分。静态风险和运行时根因需要不同证据。<a target="_blank" rel="noopener" href="https://github.com/android/skills/releases/tag/v1.0.16">v1.0.16</a>、<a target="_blank" rel="noopener" href="https://developer.android.com/agents/skills/performance/anr-audit-and-fix/references/trace_analysis_guide">分析指南</a></li>
-<li><strong>10-30 跟踪｜Perfetto v59.1 与 Android CLI 1.1。</strong> 系统侧跨重启保留、生产侧故障检索同时增强。Rabbit 2 的 LeakCanary／Agent 集成还把引用链调查接到开发环境；版本发布没有附带可外推的自动修复准确率。<a target="_blank" rel="noopener" href="https://github.com/google/perfetto/releases/tag/v59.1">Perfetto</a>、<a target="_blank" rel="noopener" href="https://developer.android.com/tools/agents/android-cli/release-notes">CLI</a>、<a target="_blank" rel="noopener" href="https://developer.android.com/studio/releases">Rabbit 2</a></li>
+<li><p><strong>09-08 源码审阅｜Android Profiler Skill。</strong> 以入口路由采集与分析工作流，先检查数据质量，再分解线程 Running／Runnable／Sleeping／D 状态，沿阻塞依赖追踪，报告事实、推断和证据缺口。收益是规范分析过程；它不等于新的常驻采集器。<a target="_blank" rel="noopener" href="https://github.com/android/skills/tree/main/profilers/android-profiler">官方 Skill</a></p>
+</li>
+<li><p><strong>09-11 跟踪｜OpenTelemetry Android 1.7.0。</strong> 修正崩溃处理链中的刷新顺序、保留事件原有会话关联；重点是避免重启后补报归入错误 session。<a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-android/releases/tag/v1.7.0">版本说明</a></p>
+</li>
+<li><p><strong>10-02 跟踪｜Profiler Skill 的工具引导器。</strong> 将 Perfetto 工具准备从临时操作变成可复用步骤。采集格式与分析器版本仍需匹配，不能把环境准备成功视为诊断正确。<a target="_blank" rel="noopener" href="https://github.com/android/skills/commit/400ee93">更新提交</a></p>
+</li>
+<li><p><strong>10-16 跟踪｜Profiler Skill v1.0.15。</strong> 进一步明确症状路由、标准库使用和证据化分析，重点仍是工作流可靠性。<a target="_blank" rel="noopener" href="https://github.com/android/skills/releases/tag/v1.0.15">版本说明</a></p>
+</li>
+<li><p><strong>10-23 跟踪｜OpenTelemetry Android 1.8.0。</strong> Native crash 记录按进程启动隔离，重启后回放故障时上下文。模块仍处 development；<strong>不包含 native 栈采集</strong>，至多一次回放也意味着导出前退出可能丢事件。<a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-android/blob/v1.8.0/instrumentation/native-crash/README.md">持久化协议与限制</a></p>
+</li>
+<li><p><strong>10-23 跟踪｜独立 ANR Skill。</strong> <code>anr-audit-and-fix</code> 将源码风险与 ANR trace 调查连接起来，强调应用缺陷、资源过载、外部瓶颈的区分。静态风险和运行时根因需要不同证据。<a target="_blank" rel="noopener" href="https://github.com/android/skills/releases/tag/v1.0.16">v1.0.16</a>、<a target="_blank" rel="noopener" href="https://developer.android.com/agents/skills/performance/anr-audit-and-fix/references/trace_analysis_guide">分析指南</a></p>
+</li>
+<li><p><strong>10-30 跟踪｜Perfetto v59.1 与 Android CLI 1.1。</strong> 系统侧跨重启保留、生产侧故障检索同时增强。Rabbit 2 的 LeakCanary／Agent 集成还把引用链调查接到开发环境；版本发布没有附带可外推的自动修复准确率。<a target="_blank" rel="noopener" href="https://github.com/google/perfetto/releases/tag/v59.1">Perfetto</a>、<a target="_blank" rel="noopener" href="https://developer.android.com/tools/agents/android-cli/release-notes">CLI</a>、<a target="_blank" rel="noopener" href="https://developer.android.com/studio/releases">Rabbit 2</a></p>
+</li>
+<li><p><strong>11-06 跟踪｜采集可靠性与 OOM 证据交付。</strong> 新增 OpenTelemetry Android 1.8.1、Sentry Perfetto 采样及官方 OOM 案例，详见<a href="#week-2026-11-06">本期摘要</a>。</p>
+</li>
 </ul>
 <h3 id="研究历史：哪些机制值得迁移"><a href="#研究历史：哪些机制值得迁移" class="headerlink" title="研究历史：哪些机制值得迁移"></a>研究历史：哪些机制值得迁移</h3><p>以下研究大多来自云、微服务、Agent 或 GPU 系统；对 Android 的意义是方法参考，实验结果保留在其原场景内。</p>
 <ul>
-<li><strong>09-11｜故障注入覆盖。</strong> LLM 注入与规则注入表现出不同故障分布；不能只用明显 crash 验证诊断器，还应覆盖静默失败和跨组件传播。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.08681">OpenStack 对照研究</a></li>
-<li><strong>09-18｜长轨迹 RCA 与预测校准。</strong> Continual Search 将诊断视为逐轮寻找未检查证据；TriCalRAG 则提醒异常检测分数可能掩盖预测偏置，生成的根因解释并未得到同等评估。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.13463">Continual Search</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.14762">TriCalRAG</a></li>
-<li><strong>09-25｜稀有日志、取证范围与先验基线。</strong> TAILOR 单独检查长尾模板；TriFleetRCA 比较 pod／namespace／cluster 取证范围，并区分结论和引用质量；RCAEval 审计发现不读取遥测的候选先验也可能取得很高 Top-5。三者共同要求检查证据与评测的盲区。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.25261">TAILOR</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.23766">TriFleetRCA</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.27069">图结构对照研究</a></li>
-<li><strong>10-02｜候选召回与独立记录。</strong> DecompRCA 把“根因没进入候选集”与“进入后排序错误”分开；Hearsay 说明由被审计系统自行书写的日志不足以独立证明执行过程。先保留决定性证据，再谈重排与推理。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.36686">DecompRCA</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.32495">Hearsay</a></li>
-<li><strong>10-09｜运行时遥测与日志关联。</strong> TeleGen 在生成、执行、修复之间加入运行时证据；LOGOS 通过实体—事件关系和时间先后压缩故障传播线索。两者都需要原始采集输入，不能据此证明只保留少量事件就一定能还原故障。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.04981">TeleGen</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.02297">LOGOS</a></li>
-<li><strong>10-16｜工单检索与身份保留。</strong> InsightTriage 研究联合工单与日志的车载故障分诊；GPU 日志研究显示解析模板可能丢掉参与者身份与完成状态。对端侧压缩，PID&#x2F;TID、会话代次和事务关联应作为有类型的字段保留。<a target="_blank" rel="noopener" href="https://nkcs.iops.ai/publications/">作者论文目录</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.14009">日志解析研究</a></li>
-<li><strong>10-23｜Diviner。</strong> 版本化诊断知识、失败查询语义和历史回放见 Agentic SRE 专题，避免重复计数。</li>
-<li><strong>10-30｜RCAtlas 与 SFlexRCA。</strong> RCAtlas 见本周摘要；SFlexRCA 在 IIoT 数据与 Raspberry Pi 上评估轻量遥测建模，可作为候选预筛选参考。其无拓扑残差排名不等于恢复真实因果图。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.04893">SFlexRCA</a></li>
+<li><p><strong>09-11｜故障注入覆盖。</strong> LLM 注入与规则注入表现出不同故障分布；不能只用明显 crash 验证诊断器，还应覆盖静默失败和跨组件传播。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.08681">OpenStack 对照研究</a></p>
+</li>
+<li><p><strong>09-18｜长轨迹 RCA 与预测校准。</strong> Continual Search 将诊断视为逐轮寻找未检查证据；TriCalRAG 则提醒异常检测分数可能掩盖预测偏置，生成的根因解释并未得到同等评估。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.13463">Continual Search</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.14762">TriCalRAG</a></p>
+</li>
+<li><p><strong>09-25｜稀有日志、取证范围与先验基线。</strong> TAILOR 单独检查长尾模板；TriFleetRCA 比较 pod／namespace／cluster 取证范围，并区分结论和引用质量；RCAEval 审计发现不读取遥测的候选先验也可能取得很高 Top-5。三者共同要求检查证据与评测的盲区。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.25261">TAILOR</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.23766">TriFleetRCA</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.27069">图结构对照研究</a></p>
+</li>
+<li><p><strong>10-02｜候选召回与独立记录。</strong> DecompRCA 把“根因没进入候选集”与“进入后排序错误”分开；Hearsay 说明由被审计系统自行书写的日志不足以独立证明执行过程。先保留决定性证据，再谈重排与推理。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.36686">DecompRCA</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2609.32495">Hearsay</a></p>
+</li>
+<li><p><strong>10-09｜运行时遥测与日志关联。</strong> TeleGen 在生成、执行、修复之间加入运行时证据；LOGOS 通过实体—事件关系和时间先后压缩故障传播线索。两者都需要原始采集输入，不能据此证明只保留少量事件就一定能还原故障。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.04981">TeleGen</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.02297">LOGOS</a></p>
+</li>
+<li><p><strong>10-16｜工单检索与身份保留。</strong> InsightTriage 研究联合工单与日志的车载故障分诊；GPU 日志研究显示解析模板可能丢掉参与者身份与完成状态。对端侧压缩，PID&#x2F;TID、会话代次和事务关联应作为有类型的字段保留。<a target="_blank" rel="noopener" href="https://nkcs.iops.ai/publications/">作者论文目录</a>、<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.14009">日志解析研究</a></p>
+</li>
+<li><p><strong>10-23｜Diviner。</strong> 版本化诊断知识、失败查询语义和历史回放见 Agentic SRE 专题，避免重复计数。</p>
+</li>
+<li><p><strong>10-30｜RCAtlas 与 SFlexRCA。</strong> RCAtlas 见 <a href="#week-2026-10-31">10 月 31 日摘要</a>；SFlexRCA 在 IIoT 数据与 Raspberry Pi 上评估轻量遥测建模，可作为候选预筛选参考。其无拓扑残差排名不等于恢复真实因果图。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2610.04893">SFlexRCA</a></p>
+</li>
+<li><p><strong>11-06｜正常基线与决策训练。</strong> 新增小模型 RCA 研究，实验条件与迁移判断见<a href="#week-2026-11-06">本期摘要</a>。</p>
+</li>
 </ul>
 <p><strong>累计判断：</strong> 稀疏取证的关键不是简单缩小日志体积，而是保住身份、关系、状态转换和失败语义。端侧筛选、候选召回与云端推理应分别评价，避免把上游证据丢失算成模型能力不足。</p>
 <p><a id="lpc"></a></p>
@@ -129,8 +160,9 @@
 <li><strong>10-14｜Forensic Checkpointing。</strong> Soft-dirty 只能告诉我们页面是否被写过，不能恢复写入次数、顺序或“修改后又恢复”的中间状态。首次写入上下文与代次记录是设计方向，公开材料尚未给出完整开销验证。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2607/attachments/2243/4927/Memor_tracking_LPC2026_Slides.pdf">官方 Slides</a></li>
 <li><strong>10-17｜LPC 讲者的会后相关研究。</strong> Yusheng Zheng 的 10-16 IPADS 分享讨论 AgentSight、AgentPProf、AgentCgroup 与运行时扩展。已发布专题核读的讲义为 <strong>21 页</strong>，题名为 <em>Co-evolving OS Infrastructure with Agents through Runtime Extensions</em>；采用该核验版本，而非早期摘要中的 25 页记录。<a href="/2026/10/08/lpc-2026-sre-observability/">已核验分析</a></li>
 <li><strong>10-20—21｜录像入口补齐。</strong> Brendan Gregg、CoreWeave、Meta、drgn + AI 等报告的录像入口已纳入既有专题。确认入口可用的日期不等于录像上传日期，Slides 结论也不冒充逐段观看结果。</li>
-<li><strong>10-29｜sched_ext 会后总结。</strong> 新增 Proxy Execution、持锁者／等待者调度延迟及跨 VM 调度协同。接口和观测缺口仍在演进，详见本周摘要。<a target="_blank" rel="noopener" href="https://lpc.events/blog/current/index.php/2026/10/28/the-sched_exit-microconference/">10-28 官方总结</a></li>
+<li><strong>10-29｜sched_ext 会后总结。</strong> 新增 Proxy Execution、持锁者／等待者调度延迟及跨 VM 调度协同。接口和观测缺口仍在演进，详见 <a href="#week-2026-10-31">10 月 31 日摘要</a>。<a target="_blank" rel="noopener" href="https://lpc.events/blog/current/index.php/2026/10/28/the-sched_exit-microconference/">10-28 官方总结</a></li>
 <li><strong>10-30｜无新增跟踪条目。</strong> 该轮未确认优先议题的实质新材料，不重复发布旧 Slides 或录像。</li>
+<li><strong>11-02、03、05｜复查无实质新增。</strong> 既有重点报告未确认新版本。本期核对时，<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2451/">Tencent Agentic Network Observability</a> 和 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2622/">BPF-Based Snapshots</a> 官方页面仍无演示材料，继续保留摘要与完整材料的区别。</li>
 </ul>
 <p><strong>累计判断：</strong> 固定预算下优先记录决定因果判断的事件：对象身份、关键状态变化、等待关系、调度上下文与独立恢复检查。</p>
 <p><a id="coding"></a></p>
@@ -160,8 +192,12 @@
 </ol>
 <p>这组设计的首要价值是让“为什么改、改后是否更好、出了问题如何撤回”都能回答。</p>
 <h2 id="更新记录"><a href="#更新记录" class="headerlink" title="更新记录"></a>更新记录</h2><ul>
-<li><strong>2026-10-31：首次发布。</strong> 建立五项跟踪入口，补入可核验的历史里程碑与 10 月 24—30 日增量；跨专题合并 Diviner、RCAtlas、Perfetto 等重复成果；更正原文日期、版本与讲义页数。</li>
-<li><strong>后续：每周五北京时间 12:00。</strong> 保留历史，补充新增和结论修订；没有新增时明确记录，不重复计数。</li>
+<li><p><strong>2026-11-06：新增 4 项。</strong> 补入采集 SDK 修复、系统侧采样、OOM 诊断案例及小模型 RCA 研究；记录 LPC 的无新增复查和其他专题的无新条目状态，保留首期与历史时间线。</p>
+</li>
+<li><p><strong>2026-10-31：首次发布。</strong> 建立五项跟踪入口，补入可核验的历史里程碑与 10 月 24—30 日增量；跨专题合并 Diviner、RCAtlas、Perfetto 等重复成果；更正原文日期、版本与讲义页数。</p>
+</li>
+<li><p><strong>后续：每周五北京时间 12:00。</strong> 保留历史，补充新增和结论修订；没有新增时明确记录，不重复计数。</p>
+</li>
 </ul>
 </section>
     <footer class="post-footer">
