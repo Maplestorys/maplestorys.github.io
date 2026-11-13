@@ -21,7 +21,7 @@
   <article class="post">
     <span class="post-meta"><time datetime="2026-10-31T01:00:00.000Z" itemprop="datePublished">2026-10-31</time></span>
     <h1 class="post-title">技术跟踪周报：Agentic SRE、Android 可观测性与 AI 工程</h1>
-    <section class="post-content"><p><strong>更新于 2026-11-06 · 每周五北京时间 12:00 汇总</strong></p>
+    <section class="post-content"><p><strong>更新于 2026-11-13 · 每周五北京时间 12:00 汇总</strong></p>
 <p>五条跟踪线正在汇合到同一个问题：<strong>怎样让 Agent 获得足够的故障证据，采取受控行动，并用独立检查证明结果有效？</strong> 本页保留历史里程碑，在顶部增补每周变化。同一成果跨专题出现时只展开一次。</p>
 <p>首期回溯已取得并可核验的 2026 年 9—10 月跟踪记录；Skill 专题同时补入相关论文的早期版本脉络。下面的“跟踪日期”表示当时收录时间，不等于材料首发日期。仅有历史摘要、尚不能重新核对的细节不作为已确认成果。</p>
 <h2 id="五项跟踪概览"><a href="#五项跟踪概览" class="headerlink" title="五项跟踪概览"></a>五项跟踪概览</h2><style>
@@ -44,17 +44,17 @@
 <tbody><tr>
 <td><a href="#sre">Agentic SRE 进展</a></td>
 <td>10 月 29 日</td>
-<td>本周未取得新的跟踪条目；相关 RCA 研究统一收录在本期摘要</td>
+<td>本周未取得新的跟踪条目；历史内容保留</td>
 </tr>
 <tr>
 <td><a href="#android">Android可观测进展</a></td>
-<td>11 月 6 日</td>
-<td>新增 3 项工具／案例与 1 项 RCA 研究，见<a href="#week-2026-11-06">本周摘要</a></td>
+<td>11 月 13 日</td>
+<td>补录 ANR 案例与数据库诊断评测，共 2 项，见<a href="#week-2026-11-13">本周摘要</a></td>
 </tr>
 <tr>
 <td><a href="#lpc">LPC 2026 SRE 跟踪</a></td>
-<td>11 月 5 日复查</td>
-<td>11 月 2、3、5 日均未确认实质新增；保留已有材料</td>
+<td>11 月 13 日复查</td>
+<td>11 月 8、9、13 日均未确认实质新增；保留已有材料</td>
 </tr>
 <tr>
 <td><a href="#coding">Android&#x2F;Chromium AI Coding</a></td>
@@ -69,7 +69,14 @@
 </tbody></table>
 </div>
 
-<p>Android 可观测性历史中也出现过暂停提示，但其后仍有 11 月 6 日更新。这里按实际收到的内容记账，不据此推断原定时任务当前是否启用。</p>
+<p>Android 可观测性历史中也出现过暂停提示，但其后仍有 11 月 13 日更新。这里按实际收到的内容记账，不据此推断原定时任务当前是否启用。</p>
+<p><a id="week-2026-11-13"></a></p>
+<h2 id="2026-11-13：回看完整故障窗口，用执行检验修复"><a href="#2026-11-13：回看完整故障窗口，用执行检验修复" class="headerlink" title="2026-11-13：回看完整故障窗口，用执行检验修复"></a>2026-11-13：回看完整故障窗口，用执行检验修复</h2><p>本期汇总 <strong>11 月 7 日至 13 日北京时间 12:00</strong> 已取得的跟踪记录，补录 <strong>2 项</strong>此前未收录的材料，均来自 Android 可观测性跟踪。材料分别更新／发表于 11 月 4 日、5 日，<strong>不是本周首次发布</strong>。LPC 三次复查未确认实质新增；其余三项未取得新条目，历史与暂停记录继续保留。</p>
+<h3 id="1-Android-ANR-案例：最后一张栈不是完整原因"><a href="#1-Android-ANR-案例：最后一张栈不是完整原因" class="headerlink" title="1. Android ANR 案例：最后一张栈不是完整原因"></a>1. Android ANR 案例：最后一张栈不是完整原因</h3><p>官方案例更新于 <strong>11 月 4 日 UTC</strong>，首发日期未标明。ANR 时主线程正在处理网络响应，但该段只消耗 <strong>1.48 秒 CPU 时间</strong>；扩大到整个操作窗口，能看到约 <strong>6.7 秒 Sleeping</strong>，其中多次停顿接近 2 秒。源码进一步确认 UI 线程内存在 2 秒网络超时与重试循环。<a target="_blank" rel="noopener" href="https://developer.android.com/topic/performance/tracing/profiling-manager/debugging-anr-example">官方案例</a></p>
+<p><strong>可复用顺序：最后正常帧 → 完整卡顿窗口 → 等待模式 → 源码验证。</strong> Sleeping 本身不能区分网络等待与锁等待；重复间隔只是线索。案例展示了 Perfetto 与 Agent 辅助调查流程，未提供诊断准确率基准。</p>
+<h3 id="2-DiagDBench：解释正确与恢复有效分开评分"><a href="#2-DiagDBench：解释正确与恢复有效分开评分" class="headerlink" title="2. DiagDBench：解释正确与恢复有效分开评分"></a>2. DiagDBench：解释正确与恢复有效分开评分</h3><p><strong>11 月 5 日 v1 预印本</strong>提供 MySQL／PostgreSQL 可执行故障环境，含 <strong>6,940 个训练样本、454 个专家标注测试样本</strong>。Agent 需取证、提交修复并重新执行工作负载；综合分由恢复评分的 70% 与诊断报告评分的 30% 组成，最高 <strong>56.24 分不是根因准确率</strong>。<a target="_blank" rel="noopener" href="https://arxiv.org/html/2611.07339v1">论文 v1</a> · <a target="_blank" rel="noopener" href="https://github.com/RUCKBReasoning/DiagDBench">公开代码</a></p>
+<p>恢复评分包含实际执行与时延，但工作负载语义等价、诊断报告仍由 LLM 裁判判断。结果属于数据库基准实验。<strong>迁移推断：</strong> Android 历史故障库可保留“环境＋触发步骤＋证据＋修复后断言”，分别检查根因解释、功能恢复与性能回归，而非只评报告是否合理。</p>
+<p><strong>本期优先阅读：</strong> 应用诊断团队先读 ANR 案例；维护诊断评测集的团队再看 DiagDBench 的执行检查与裁判边界。</p>
 <p><a id="week-2026-11-06"></a></p>
 <h2 id="2026-11-06：先保证观测可靠，再改进诊断"><a href="#2026-11-06：先保证观测可靠，再改进诊断" class="headerlink" title="2026-11-06：先保证观测可靠，再改进诊断"></a>2026-11-06：先保证观测可靠，再改进诊断</h2><p>本期汇总 <strong>10 月 31 日至 11 月 6 日北京时间 12:00</strong> 已取得的跟踪记录。新增 <strong>4 项</strong>，均来自 Android 可观测性跟踪，其中 1 项为可迁移的微服务 RCA 研究。LPC 有复查记录但未确认实质新增；另外三项未取得新条目，历史内容继续保留。</p>
 <h3 id="1-OpenTelemetry-Android-1-8-1：避免监控代码成为故障源"><a href="#1-OpenTelemetry-Android-1-8-1：避免监控代码成为故障源" class="headerlink" title="1. OpenTelemetry Android 1.8.1：避免监控代码成为故障源"></a>1. OpenTelemetry Android 1.8.1：避免监控代码成为故障源</h3><p>官方 Release 标注 <strong>11 月 5 日</strong>发布，修复慢渲染埋点在 <strong>Android 8–11（API 26–30）且未启用 core library desugaring</strong> 时调用 <code>Duration.toSeconds()</code> 引发的 <code>NoSuchMethodError</code>。另一个修复避免 <code>Services</code> 保留非 Application Context，并在关闭时重置单例，让 SDK 再初始化后的生命周期跟踪恢复工作。<a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-android/releases/tag/v1.8.1">发布说明</a></p>
@@ -129,6 +136,8 @@
 </li>
 <li><p><strong>11-06 跟踪｜采集可靠性与 OOM 证据交付。</strong> 新增 OpenTelemetry Android 1.8.1、Sentry Perfetto 采样及官方 OOM 案例，详见<a href="#week-2026-11-06">本期摘要</a>。</p>
 </li>
+<li><p><strong>11-13 跟踪｜ANR 完整窗口分析。</strong> 补录 11 月 4 日更新的官方案例，详见<a href="#week-2026-11-13">11 月 13 日摘要</a>。</p>
+</li>
 </ul>
 <h3 id="研究历史：哪些机制值得迁移"><a href="#研究历史：哪些机制值得迁移" class="headerlink" title="研究历史：哪些机制值得迁移"></a>研究历史：哪些机制值得迁移</h3><p>以下研究大多来自云、微服务、Agent 或 GPU 系统；对 Android 的意义是方法参考，实验结果保留在其原场景内。</p>
 <ul>
@@ -150,19 +159,31 @@
 </li>
 <li><p><strong>11-06｜正常基线与决策训练。</strong> 新增小模型 RCA 研究，实验条件与迁移判断见<a href="#week-2026-11-06">本期摘要</a>。</p>
 </li>
+<li><p><strong>11-13｜可执行诊断评测。</strong> 补录 DiagDBench 11 月 5 日 v1，恢复评分与报告评分的区别见<a href="#week-2026-11-13">11 月 13 日摘要</a>。</p>
+</li>
 </ul>
 <p><strong>累计判断：</strong> 稀疏取证的关键不是简单缩小日志体积，而是保住身份、关系、状态转换和失败语义。端侧筛选、候选召回与云端推理应分别评价，避免把上游证据丢失算成模型能力不足。</p>
 <p><a id="lpc"></a></p>
 <h2 id="三、LPC-2026：把低成本观测转化为可解释证据"><a href="#三、LPC-2026：把低成本观测转化为可解释证据" class="headerlink" title="三、LPC 2026：把低成本观测转化为可解释证据"></a>三、LPC 2026：把低成本观测转化为可解释证据</h2><p>完整议题地图、已有图件和 Slides 索引继续保留在 <a href="/2026/10/08/lpc-2026-sre-observability/">LPC 2026 SRE／可观测性专题</a>。这里记录时间线与后续增量。</p>
 <ul>
-<li><strong>10-08—09｜初版与首轮 Slides。</strong> 22 项议题按健康度、证据采集、跨层关联、在线状态、AI 诊断及恢复组织；补入 CoreWeave 已知 panic 前置去重、Meta 稀有故障统计、drgn 的 RT 停滞链和 CRIU&#x2F;RDMA 对象恢复。技术细节与固定来源见上述专题。</li>
-<li><strong>10-10｜动态缓解和对象级观测。</strong> shirudo 把 Agent 生成的 BPF 检测／缓解程序接入验证、签名与部署；GPU 增量 checkpoint 说明体积和暂停时间是不同优化目标；Cloudflare 按目标 skb 选择跟踪范围；CRIU 的 BPF 状态恢复提醒“进程恢复”不代表设备访问策略也恢复。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2437/attachments/2170/4833/shirudo.pdf">shirudo Slides</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2603/attachments/2260/4950/LPC-2026-Enabling-Incremental-Checkpointing-for-GPU-Workloads.pdf">GPU Slides</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2549/">Cloudflare</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2606/">BPF 恢复</a></li>
-<li><strong>10-14｜Forensic Checkpointing。</strong> Soft-dirty 只能告诉我们页面是否被写过，不能恢复写入次数、顺序或“修改后又恢复”的中间状态。首次写入上下文与代次记录是设计方向，公开材料尚未给出完整开销验证。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2607/attachments/2243/4927/Memor_tracking_LPC2026_Slides.pdf">官方 Slides</a></li>
-<li><strong>10-17｜LPC 讲者的会后相关研究。</strong> Yusheng Zheng 的 10-16 IPADS 分享讨论 AgentSight、AgentPProf、AgentCgroup 与运行时扩展。已发布专题核读的讲义为 <strong>21 页</strong>，题名为 <em>Co-evolving OS Infrastructure with Agents through Runtime Extensions</em>；采用该核验版本，而非早期摘要中的 25 页记录。<a href="/2026/10/08/lpc-2026-sre-observability/">已核验分析</a></li>
-<li><strong>10-20—21｜录像入口补齐。</strong> Brendan Gregg、CoreWeave、Meta、drgn + AI 等报告的录像入口已纳入既有专题。确认入口可用的日期不等于录像上传日期，Slides 结论也不冒充逐段观看结果。</li>
-<li><strong>10-29｜sched_ext 会后总结。</strong> 新增 Proxy Execution、持锁者／等待者调度延迟及跨 VM 调度协同。接口和观测缺口仍在演进，详见 <a href="#week-2026-10-31">10 月 31 日摘要</a>。<a target="_blank" rel="noopener" href="https://lpc.events/blog/current/index.php/2026/10/28/the-sched_exit-microconference/">10-28 官方总结</a></li>
-<li><strong>10-30｜无新增跟踪条目。</strong> 该轮未确认优先议题的实质新材料，不重复发布旧 Slides 或录像。</li>
-<li><strong>11-02、03、05｜复查无实质新增。</strong> 既有重点报告未确认新版本。本期核对时，<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2451/">Tencent Agentic Network Observability</a> 和 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2622/">BPF-Based Snapshots</a> 官方页面仍无演示材料，继续保留摘要与完整材料的区别。</li>
+<li><p><strong>10-08—09｜初版与首轮 Slides。</strong> 22 项议题按健康度、证据采集、跨层关联、在线状态、AI 诊断及恢复组织；补入 CoreWeave 已知 panic 前置去重、Meta 稀有故障统计、drgn 的 RT 停滞链和 CRIU&#x2F;RDMA 对象恢复。技术细节与固定来源见上述专题。</p>
+</li>
+<li><p><strong>10-10｜动态缓解和对象级观测。</strong> shirudo 把 Agent 生成的 BPF 检测／缓解程序接入验证、签名与部署；GPU 增量 checkpoint 说明体积和暂停时间是不同优化目标；Cloudflare 按目标 skb 选择跟踪范围；CRIU 的 BPF 状态恢复提醒“进程恢复”不代表设备访问策略也恢复。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2437/attachments/2170/4833/shirudo.pdf">shirudo Slides</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2603/attachments/2260/4950/LPC-2026-Enabling-Incremental-Checkpointing-for-GPU-Workloads.pdf">GPU Slides</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2549/">Cloudflare</a>、<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2606/">BPF 恢复</a></p>
+</li>
+<li><p><strong>10-14｜Forensic Checkpointing。</strong> Soft-dirty 只能告诉我们页面是否被写过，不能恢复写入次数、顺序或“修改后又恢复”的中间状态。首次写入上下文与代次记录是设计方向，公开材料尚未给出完整开销验证。<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2607/attachments/2243/4927/Memor_tracking_LPC2026_Slides.pdf">官方 Slides</a></p>
+</li>
+<li><p><strong>10-17｜LPC 讲者的会后相关研究。</strong> Yusheng Zheng 的 10-16 IPADS 分享讨论 AgentSight、AgentPProf、AgentCgroup 与运行时扩展。已发布专题核读的讲义为 <strong>21 页</strong>，题名为 <em>Co-evolving OS Infrastructure with Agents through Runtime Extensions</em>；采用该核验版本，而非早期摘要中的 25 页记录。<a href="/2026/10/08/lpc-2026-sre-observability/">已核验分析</a></p>
+</li>
+<li><p><strong>10-20—21｜录像入口补齐。</strong> Brendan Gregg、CoreWeave、Meta、drgn + AI 等报告的录像入口已纳入既有专题。确认入口可用的日期不等于录像上传日期，Slides 结论也不冒充逐段观看结果。</p>
+</li>
+<li><p><strong>10-29｜sched_ext 会后总结。</strong> 新增 Proxy Execution、持锁者／等待者调度延迟及跨 VM 调度协同。接口和观测缺口仍在演进，详见 <a href="#week-2026-10-31">10 月 31 日摘要</a>。<a target="_blank" rel="noopener" href="https://lpc.events/blog/current/index.php/2026/10/28/the-sched_exit-microconference/">10-28 官方总结</a></p>
+</li>
+<li><p><strong>10-30｜无新增跟踪条目。</strong> 该轮未确认优先议题的实质新材料，不重复发布旧 Slides 或录像。</p>
+</li>
+<li><p><strong>11-02、03、05｜复查无实质新增。</strong> 既有重点报告未确认新版本。本期核对时，<a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2451/">Tencent Agentic Network Observability</a> 和 <a target="_blank" rel="noopener" href="https://lpc.events/event/20/contributions/2622/">BPF-Based Snapshots</a> 官方页面仍无演示材料，继续保留摘要与完整材料的区别。</p>
+</li>
+<li><p><strong>11-08、09、13｜复查无实质新增。</strong> 上述两项官方页面仍未提供演示材料；继续保留既有摘要，不将重复检查计为新成果。</p>
+</li>
 </ul>
 <p><strong>累计判断：</strong> 固定预算下优先记录决定因果判断的事件：对象身份、关键状态变化、等待关系、调度上下文与独立恢复检查。</p>
 <p><a id="coding"></a></p>
@@ -192,6 +213,8 @@
 </ol>
 <p>这组设计的首要价值是让“为什么改、改后是否更好、出了问题如何撤回”都能回答。</p>
 <h2 id="更新记录"><a href="#更新记录" class="headerlink" title="更新记录"></a>更新记录</h2><ul>
+<li><p><strong>2026-11-13：补录 2 项。</strong> 新收录官方 ANR 案例与 DiagDBench 评测，分别标明材料更新／发布日期；记录 LPC 三次无新增复查，其余三项无新条目，保留此前全部周摘要与历史。</p>
+</li>
 <li><p><strong>2026-11-06：新增 4 项。</strong> 补入采集 SDK 修复、系统侧采样、OOM 诊断案例及小模型 RCA 研究；记录 LPC 的无新增复查和其他专题的无新条目状态，保留首期与历史时间线。</p>
 </li>
 <li><p><strong>2026-10-31：首次发布。</strong> 建立五项跟踪入口，补入可核验的历史里程碑与 10 月 24—30 日增量；跨专题合并 Diviner、RCAtlas、Perfetto 等重复成果；更正原文日期、版本与讲义页数。</p>
