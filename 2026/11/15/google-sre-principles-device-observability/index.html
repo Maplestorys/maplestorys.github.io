@@ -21,67 +21,68 @@
   <article class="post">
     <span class="post-meta"><time datetime="2026-11-15T04:00:00.000Z" itemprop="datePublished">2026-11-15</time></span>
     <h1 class="post-title">Google SRE 第二版对照阅读：默认可靠、可信观测与受控 Agent</h1>
-    <section class="post-content"><p>主线程还在响应，CPU 也不忙，自绘界面却不再刷新。对用户而言，功能已经停住；对只检查线程存活的监控而言，系统可能仍然健康。这个落差，比“再增加一个探针”更值得先解决。</p>
-<p>Google SRE 第二版对设备侧诊断最有价值的启发，是把已有实践进一步组织为：<strong>平台默认能力＋可信用户结果度量＋系统安全约束＋持续评估。</strong> 第一版的用户导向、风险取舍、简单监控、假设检验、测试与安全自动化仍然成立；第二版是补充，而非整体替代。</p>
-<p>本文整理已有阅读笔记的核心结论。第二版部分依据先前对读者提供的《Site_Reliability_Engineering_2nd_Edition.pdf》（984 页）的阅读记录，本次发布未重新核读该 PDF；文末保留 PDF 页面序号。第一版与公开参考材料附原始链接。下文的“第二版推进”概括阅读记录，“设备侧借鉴”是本文建议；Google 报告的实践、作者对未来的展望与设备侧建议分别表述。</p>
-<nav aria-label="文章目录">
+    <section class="post-content"><p>主线程还在处理输入，CPU 负载也不高，自绘界面却已经不再刷新。对用户而言，功能已经卡死；对只检查线程存活或消息队列心跳的监控而言，进程却依然“健康”。遇到这类盲区时，工程团队的直觉往往是再加一个探针、多抓一份日志；但真正失效的并非某条采样指令，而是系统赖以判断“什么算健康、残缺证据如何记账、恢复动作凭什么算数”的底层契约。</p>
+<p>这正是重读《Site Reliability Engineering》第二版时最值得带回设备侧的视角。第一版确立的核心原则——围绕用户体验定义目标、用面向症状的简单信号告警、以假设检验组织排障、靠工程自动化消除重复劳动——今天依然成立；第二版也在前言中明确自身是补充而非整体替代（PDF 8 页）。真正发生变化的是工程边界：不可控的客户端与深层依赖链让“测量本身是否可信”成为前置难题，规模化协作要求把可靠性政策下沉为平台默认能力，而概率性 Agent 的引入，则迫使安全约束与测试对象从确定性代码扩展到“推理—取证—执行—终止”的完整过程。</p>
+<div style="margin: 1.4em 0; padding: 12px 16px; border-left: 4px solid #50585D; background: #f4fbfc; font-size: 0.92em; line-height: 1.65;">
+<strong>材料与口径说明：</strong>文中涉及第二版的内容整理自此前对 984 页 PDF 版《Site Reliability Engineering, 2nd Edition》的阅读笔记，本次成文未重新逐页核读原件；页码仅保留原阅读定位以便检索，不作为直接引文页码。第一版与公开参考材料均附原始链接。下文严格区分三类表述：书中及公开报告记录的 Google 实践、原作者对未来的展望，以及本文面向设备侧提出的迁移设计。
+</div>
+
+<nav aria-label="文章目录" style="margin: 1.4em 0 2em; padding: 12px 18px; border: 1px solid #d9eaee; border-radius: 4px; background: #f9fdfe; font-size: 0.92em; line-height: 1.65;">
 
 <p><strong>阅读导航</strong></p>
 <ul>
-<li><a href="#foundation">第一版已经建立的基础</a></li>
-<li><a href="#nine-directions">九项推进：从默认可靠到策略实验</a></li>
-<li><a href="#references-comparison">公开参考材料仍然解决什么问题</a></li>
-<li><a href="#device-assets">OpenHarmony &#x2F; Android：优先形成四项资产</a></li>
-<li><a href="#frozen-ui">用“界面不刷新”检验方案</a></li>
-<li><a href="#reading-map">来源与原阅读定位</a></li>
+<li><a href="#foundation">一、第一版留下的基石，与第二版补上的缺口</a></li>
+<li><a href="#nine-directions">二、九项演进：沿四条工程脉络重读第二版</a></li>
+<li><a href="#references-comparison">三、公开参考材料在拼图中的位置</a></li>
+<li><a href="#device-assets">四、落回 OpenHarmony &#x2F; Android：优先沉淀四项资产</a></li>
+<li><a href="#frozen-ui">五、回到现场：用“主线程响应但界面停刷”走通闭环</a></li>
+<li><a href="#reading-map">六、来源与原阅读定位</a></li>
 </ul>
 </nav>
 
 <p><a id="foundation"></a></p>
-<h2 id="第一版已经建立的基础"><a href="#第一版已经建立的基础" class="headerlink" title="第一版已经建立的基础"></a>第一版已经建立的基础</h2><p>第一版并非只关注服务存活。<a target="_blank" rel="noopener" href="https://sre.google/sre-book/service-level-objectives/">SLO 章节</a>已经说明，客户端时延通常更接近用户体验，服务端测量有时只是代理；<a target="_blank" rel="noopener" href="https://sre.google/sre-book/monitoring-distributed-systems/">监控章节</a>强调面向症状、保持简单。把版本演进写成“第一版看存活，第二版才看体验”，会误读已有基础。</p>
-<p>同样，<a target="_blank" rel="noopener" href="https://sre.google/sre-book/effective-troubleshooting/">故障排查</a>把调查建立在假设与检验上，<a target="_blank" rel="noopener" href="https://sre.google/sre-book/testing-reliability/">可靠性测试</a>讨论用测试暴露系统失效方式，<a target="_blank" rel="noopener" href="https://sre.google/sre-book/automation-at-google/">自动化</a>关注工程化消除重复劳动。第二版的增量，应当放在这些原则如何成为公共能力、怎样适应客户端测量与概率性 Agent 上理解。</p>
+<h2 id="一、第一版留下的基石，与第二版补上的缺口"><a href="#一、第一版留下的基石，与第二版补上的缺口" class="headerlink" title="一、第一版留下的基石，与第二版补上的缺口"></a>一、第一版留下的基石，与第二版补上的缺口</h2><p>如果把两版之间的演进简单概括为“第一版看服务端存活，第二版才看用户体验”，就会误读 SRE 原有的理论地基。早在第一版的《<a target="_blank" rel="noopener" href="https://sre.google/sre-book/service-level-objectives/">Service Level Objectives</a>》中，作者就已经指出客户端测量往往比服务端指标更贴近真实体感，服务端数据很多时候只是不得已的代理；《<a target="_blank" rel="noopener" href="https://sre.google/sre-book/monitoring-distributed-systems/">Monitoring Distributed Systems</a>》同样明确主张告警应面向症状而非内部原因，并尽量保持监控链路简单。</p>
+<p>在运行与演进方法上，第一版的《<a target="_blank" rel="noopener" href="https://sre.google/sre-book/effective-troubleshooting/">Effective Troubleshooting</a>》把排障建立在“提出假设—对照观测证伪”的循环之上，《<a target="_blank" rel="noopener" href="https://sre.google/sre-book/testing-reliability/">Testing for Reliability</a>》探讨如何通过系统化测试提前暴露失效模式，《<a target="_blank" rel="noopener" href="https://sre.google/sre-book/automation-at-google/">The Evolution of Automation at Google</a>》则把消除手工重复劳动（Toil）确立为主线。</p>
+<p>第二版的真正增量，不在于推翻这些原则，而在于回答当系统复杂度再上一个台阶后，这些原则靠什么机制落地。把阅读笔记中的九项关键变化放在一起看，它们并非彼此孤立的散点，而是沿着四条清晰的工程脉络逐层展开：</p>
+<ol>
+<li><strong>治理下沉（第 1 项）</strong>：把分散在各业务团队的可靠性要求收敛进公共平台，让正确做法成为默认路径；</li>
+<li><strong>可信观测（第 2—4 项）</strong>：正视客户端环境中的本底噪声、保护路径与分析路径的资源冲突，以及采集中断和数据丢失对结论边界的影响；</li>
+<li><strong>变更与风险（第 5—6 项）</strong>：在多版本并存的依赖链中把调用方异常归因到实际参与请求的版本，并把风险视角从事故时间线前移到控制回路缺陷；</li>
+<li><strong>受控 Agent（第 7—9 项）</strong>：当大模型进入诊断与恢复链路，将推理与执行控制解耦，把测试延伸到调查轨迹与终止条件，并在统一底座上开展公平的策略实验。</li>
+</ol>
 <p><a id="nine-directions"></a></p>
-<h2 id="九项推进：从默认可靠到策略实验"><a href="#九项推进：从默认可靠到策略实验" class="headerlink" title="九项推进：从默认可靠到策略实验"></a>九项推进：从默认可靠到策略实验</h2><h3 id="1-默认可靠与-Shift-Down：把共性政策沉入平台"><a href="#1-默认可靠与-Shift-Down：把共性政策沉入平台" class="headerlink" title="1. 默认可靠与 Shift Down：把共性政策沉入平台"></a>1. 默认可靠与 Shift Down：把共性政策沉入平台</h3><p><strong>已有基础。</strong> 可靠性依赖可复用的工程机制，而不只是事故现场的个人经验。自动化和减少重复劳动早已是 SRE 的主线。<a target="_blank" rel="noopener" href="https://sre.google/sre-book/automation-at-google/">第一版：自动化</a></p>
-<p><strong>第二版推进。</strong> 阅读笔记中的 Convergence、公共生产平台和 Shift Down 指向同一个组织问题：让经过筛选、持续维护的解决方案承载共性政策，减少各团队重复实现可靠性要求。默认可靠首先是平台交付方式，而非多开一些监控开关。原阅读定位：平台工程 PDF 738–743 页起，Shift Down 894–899 页。</p>
-<p><strong>设备侧借鉴。</strong> 公共 DFX 层统一证据格式、版本标签、预算、权限、取消、上传隔离和评估；业务 Skill 补充任务语义与领域知识。统一能力不等于默认开启全部探针，也不需要一个包办所有诊断的巨型 Agent。应当先复用已有采集与保护机制，再补足契约缺口。</p>
-<h3 id="2-用户结果首先要求测量可信"><a href="#2-用户结果首先要求测量可信" class="headerlink" title="2. 用户结果首先要求测量可信"></a>2. 用户结果首先要求测量可信</h3><p><strong>已有基础。</strong> 第一版已经把指标与用户感受联系起来；<a target="_blank" rel="noopener" href="https://sre.google/resources/practices-and-processes/product-focused-reliability-for-sre/">Product-Focused Reliability</a>进一步以用户目标和完成步骤组织可靠性工作。</p>
-<p><strong>第二版推进。</strong> 客户端 SLO 将交互完整性、噪声底、分母不明确与会话化指标放到测量设计中。看见失败事件不等于知道全部任务，看不见结束事件也不等于任务失败。原阅读定位：PDF 278–282 页。</p>
-<p><strong>设备侧借鉴。</strong> 将两类状态分开记录：</p>
+<h2 id="二、九项演进：沿四条工程脉络重读第二版"><a href="#二、九项演进：沿四条工程脉络重读第二版" class="headerlink" title="二、九项演进：沿四条工程脉络重读第二版"></a>二、九项演进：沿四条工程脉络重读第二版</h2><h3 id="1-默认可靠与-Shift-Down：把共性政策沉入平台"><a href="#1-默认可靠与-Shift-Down：把共性政策沉入平台" class="headerlink" title="1. 默认可靠与 Shift Down：把共性政策沉入平台"></a>1. 默认可靠与 Shift Down：把共性政策沉入平台</h3><p>第一版谈<a target="_blank" rel="noopener" href="https://sre.google/sre-book/automation-at-google/">自动化演进</a>时，核心诉求是用可复用的工程机制替代事故现场的个人英雄主义。到了第二版，Convergence（技术栈收敛）、公共生产平台与 Shift Down 进一步把这一诉求推向组织架构层面：所谓 Shift Down，不是继续把运维检查清单往业务研发身上堆砌，而是由经过筛选、持续维护的底层平台直接承载共性可靠性政策，减少每个团队各自重造安全护栏的摩擦（PDF 738–743、894–899 页）。因此，“默认可靠”首先是一种平台交付方式，而不是在系统里默认打开更多监控开关。</p>
+<p>放到设备侧，这一思路直接对应公共 DFX 底座与业务领域逻辑的分工：公共层统一定义证据格式、版本标签、资源预算、权限校验、任务取消、上传隔离与评测口径；各子系统或业务侧则通过轻量 Skill 注入具体的任务语义与排障经验。底座统一并不意味着常驻开启全部重型探针，更不需要拼装一个包揽所有故障的巨型 Agent——优先复用系统既有的采集通道与保护机制，把缺失的契约补齐，才是成本最低的收敛路径。</p>
+<hr>
+<p><em>平台搭起共性护栏之后，紧接着遇到的问题便是：我们用来判断系统好坏的信号本身是否可信？第 2 至第 4 项集中处理客户端测量、遥测链路隔离与残缺证据记账。</em></p>
+<h3 id="2-用户结果首先要求测量可信"><a href="#2-用户结果首先要求测量可信" class="headerlink" title="2. 用户结果首先要求测量可信"></a>2. 用户结果首先要求测量可信</h3><p>第一版已经将 SLO 锚定在用户感受上，公开白皮书《<a target="_blank" rel="noopener" href="https://sre.google/resources/practices-and-processes/product-focused-reliability-for-sre/">Product-Focused Reliability</a>》又进一步按用户目标与关键完成步骤拆解可靠性。第二版讨论客户端 SLO 时，把终端测量特有的结构性偏差摆到了台面上：网络黑洞、系统杀进程或断电会构成无法靠服务端消除的“噪声底”（Noise Floor），单次请求未必反映完整会话体验，更棘手的是“分母不明确”——看见失败上报不等于知道总尝试次数，收不到结束事件也不代表用户任务一定失败（PDF 278–282 页）。</p>
+<p>落到 OpenHarmony 与 Android 的终端诊断中，最关键的设计动作是把<strong>业务成败</strong>与<strong>观测成败</strong>拆成两个正交维度分别入账：</p>
 <ul>
-<li><strong>功能结果</strong>：成功、明确失败、取消、未知。</li>
-<li><strong>观测状态</strong>：完整、未闭合、丢失、不支持。</li>
+<li><strong>功能结果</strong>：成功、明确失败、用户取消、结果未知。</li>
+<li><strong>观测状态</strong>：完整闭合、超时未闭合、中途丢失、节点不支持。</li>
 </ul>
-<p>缺少结束事件时，先保留“结果未知＋观测未闭合”等真实状态，再核查取消、丢失与能力限制；不能直接判故障，也不能悄悄从成功率分母中排除。报告成功率时，应同时说明未知任务的数量与分母规则。</p>
-<p>会话也不天然等于独立用户。比较版本时，需要考虑机型、网络和用户构成差异，否则群体变化可能被误读为版本回归。</p>
-<h3 id="3-高可用遥测与分析遥测分层"><a href="#3-高可用遥测与分析遥测分层" class="headerlink" title="3. 高可用遥测与分析遥测分层"></a>3. 高可用遥测与分析遥测分层</h3><p><strong>已有基础。</strong> 简单、及时、面向症状的监控用于触发行动；深入排查则需要更丰富的上下文。<a target="_blank" rel="noopener" href="https://sre.google/sre-book/monitoring-distributed-systems/">第一版：监控</a>、<a target="_blank" rel="noopener" href="https://sre.google/sre-book/effective-troubleshooting/">故障排查</a></p>
-<p><strong>第二版推进。</strong> 高可用遥测优先最新状态、低延迟、可靠性和简单处理；分析遥测侧重完整性、高维关联、保留期限与成本。它们的取舍不同，不应被同一条复杂依赖链绑在一起。原阅读定位：PDF 304–310 页。</p>
-<p><strong>设备侧借鉴。</strong> 本地健康保护不等待 LLM、上传或知识库；异步分析处理用户任务、运维变化和有界故障证据。统一接入语义，但隔离依赖与预算。不必机械地拆成两个常驻进程，关键是分析能力失效不能拖垮保护路径。</p>
-<h3 id="4-数据损失也是证据的一部分"><a href="#4-数据损失也是证据的一部分" class="headerlink" title="4. 数据损失也是证据的一部分"></a>4. 数据损失也是证据的一部分</h3><p><strong>已有基础。</strong> 调查需要检验观测是否足以支持假设，不能把日志当成系统行为的完整复刻。<a target="_blank" rel="noopener" href="https://sre.google/sre-book/effective-troubleshooting/">第一版：故障排查</a></p>
-<p><strong>第二版推进。</strong> 客户端批量上传、存储配额、时钟偏差与重复提交会影响分析。丢旧记录可能失去故障起点，丢新记录可能失去当前状态；保留策略因此会改变可回答的问题。HMD 体现公共保留策略与数据价值管理。原阅读定位：客户端采集 PDF 317–326 页，数据保留与 HMD 336–340 页。</p>
-<p><strong>设备侧借鉴。</strong> 每个证据包应说明覆盖窗口、采样方式、已知丢失、权限与能力、时间质量。必须区分“没发生”“没采到”“不支持”“采集失败”。跨来源时间线还应保留时钟偏差或无法可靠对齐的事实，避免制造虚假的先后关系。</p>
-<p>保留期限按证据用途与成本确定。关键低频证据可能只在严重故障时被读取，不能只因访问少而删除。</p>
-<h3 id="5-调用方变更验证与实际版本归因"><a href="#5-调用方变更验证与实际版本归因" class="headerlink" title="5. 调用方变更验证与实际版本归因"></a>5. 调用方变更验证与实际版本归因</h3><p><strong>已有基础。</strong> 发布是否安全，需要看使用方的实际结果，而不只是被发布服务自身的指标；Workbook 提供了<a target="_blank" rel="noopener" href="https://sre.google/workbook/canarying-releases/">金丝雀发布实践</a>。</p>
-<p><strong>第二版推进。</strong> Client-Focused Change Supervision 将调用方结果关联到实际参与请求的依赖版本，识别“后端正常返回、上游却无法使用”的回归。这里的 client 也包括上游服务，版本不只指二进制，还包括配置或数据。原阅读定位：PDF 539–544 页。</p>
-<p><strong>设备侧借鉴。</strong> 对关键用户任务关联框架、组件、配置与发布批次，使异常能落到实际参与任务的版本上。同时限制标签基数、传播范围和每次调用开销，不向全系统传播完整依赖图。关联先用于缩小候选范围，归因仍需对照与验证。</p>
-<h3 id="6-从时间线和拓扑走向控制关系与风险"><a href="#6-从时间线和拓扑走向控制关系与风险" class="headerlink" title="6. 从时间线和拓扑走向控制关系与风险"></a>6. 从时间线和拓扑走向控制关系与风险</h3><p><strong>已有基础。</strong> 事故复盘与假设检验帮助解释已经发生的故障；<a target="_blank" rel="noopener" href="https://sre.google/resources/practices-and-processes/twenty-years-of-sre-lessons-learned/">Twenty Years of SRE Lessons Learned</a>总结了事故、缓解与恢复经验。</p>
-<p><strong>第二版推进。</strong> STAMP &#x2F; STPA &#x2F; CAST 将分析扩展到控制者、反馈、危险状态、不安全控制动作及其上下文。风险可以在当前指标正常时已经存在，例如恢复从未验证、变更没有回退，或多个组件共享故障域。原阅读定位：PDF 422–437 页起；风险领先指标 894–899 页。</p>
-<p><strong>设备侧借鉴。</strong> 先选升级取证、重启应用、回滚配置等少量动作做离线风险分析，将结果落实为前置条件、禁止状态、有效期、频率和停止条件。风险库记录具体控制缺口，而不只是历史故障标签。</p>
-<p>时间先后、拓扑相连或相似历史都不能自动证明因果；风险领先指标也不意味着能预测所有故障。它们分别帮助调查和提前治理，不能替代证据检验。</p>
-<h3 id="7-渐进自治与独立执行控制"><a href="#7-渐进自治与独立执行控制" class="headerlink" title="7. 渐进自治与独立执行控制"></a>7. 渐进自治与独立执行控制</h3><p><strong>已有基础。</strong> <a target="_blank" rel="noopener" href="https://google.github.io/building-secure-and-reliable-systems/raw/ch03.html">Safe Proxies</a>已经提供权限、审计与限速等执行侧控制。安全边界并不是引入 Agent 后才需要的能力。</p>
-<p><strong>第二版推进。</strong> 只读调查、人工审批与限定场景自治逐步推进；风险变化或表现下降时，撤回自治权。L0–L4 表达职责分级，不要求每个系统都达到 L4。AI Operator 的高自治能力限于经过验证的特定场景。原阅读定位：Agent 安全 PDF 827–830 页，自治等级及 AI Operator 845–850 页。</p>
-<p>公开的 <a target="_blank" rel="noopener" href="https://sre.google/resources/practices-and-processes/ai-engineering-reliable-operations/">AI in SRE</a>报告了 AI Operator、Actus、IRM Analyzer 等案例，并讨论更广泛的未来方向。本文取其“推理与执行控制分离”的工程启发；其案例与展望需要分开判断，不能把未来愿景当作通用自治已经成熟的证明，也不能把文章的所有组件都归入第二版正文。</p>
-<p><strong>设备侧借鉴。</strong> 满足需求的传统自动化继续保留。动作执行前检查当前状态，执行后由独立检查验证功能结果，而不是让执行者的一句“成功”充当验收。</p>
-<p>可逆、可补偿、不可逆动作应分别定义处置方式。重启可能恢复进程，却无法找回未保存的内容。“动作＋验证＋回滚”是设计要求，现实副作用不会因此天然成为原子事务。</p>
-<h3 id="8-测试对象扩展到调查过程与终止"><a href="#8-测试对象扩展到调查过程与终止" class="headerlink" title="8. 测试对象扩展到调查过程与终止"></a>8. 测试对象扩展到调查过程与终止</h3><p><strong>已有基础。</strong> 第一版已经强调可靠性测试；面对 Agent，测试对象从确定性代码进一步扩展到整个调查系统。<a target="_blank" rel="noopener" href="https://sre.google/sre-book/testing-reliability/">第一版：可靠性测试</a></p>
-<p><strong>第二版推进。</strong> 除代码外，还需测试 Prompt、模型、工具规格、参数、失败与过载、调查重复、步数、成本和终止行为。Agent 测试分层与 L0–L4 自治等级是不同分类，前者组织验证，后者分配职责。原阅读定位：Agent 测试 PDF 565–570 页，AI 质量 SLO 786–790 页。</p>
-<p><strong>设备侧借鉴。</strong> 在历史 AppFreeze &#x2F; Crash 测试中加入日志缺失、trace 截断、无权限、过期拓扑、工具超时、并发故障，以及恢复后调查仍未停止的场景。</p>
-<p>评价应覆盖证据支持、误判、停止与升级行为、成本及功能恢复，而不只比较 RCA 文本相似度。API 调用成功或 JSON 有效，只说明局部接口条件满足，不代表用户任务成功。</p>
-<h3 id="9-统一基础，允许策略实验"><a href="#9-统一基础，允许策略实验" class="headerlink" title="9. 统一基础，允许策略实验"></a>9. 统一基础，允许策略实验</h3><p><strong>已有基础。</strong> 可复用工程能力与基于证据的改进，可以同时成立；统一接口不必意味着每次调查都走同一条路径。</p>
-<p><strong>第二版推进的综合理解。</strong> 平台能力、Agent 安全和持续评估需要共同工作。本文据此主张：先统一可以比较与约束行为的基础，再通过实验选择调查策略。</p>
-<p><strong>设备侧借鉴。</strong> 统一证据、权限、预算、工具语义与评估门槛；允许不同模型、Harness、自由调查、固定流程和可选 Skill 做公平对照。比较时保持可用证据、工具权限、资源预算与评分口径一致，并记录每一步实际动作。</p>
-<p>不要过早固定全部调查路径。训练、记忆样本与评测样本隔离，避免答案泄漏；否则更熟悉故障样本，可能被误认成更好的诊断能力。</p>
+<p>当一次交互缺少结束事件时，系统应先如实记为“结果未知＋观测未闭合”，随后再去核查用户主动取消、缓冲区丢包或埋点能力缺失，既不能直接判作业务故障，也不能悄悄把它从成功率分母里抹掉。对外报告成功率时，必须同步披露未知任务的占比与分母口径。此外，单次会话并不天然等同于独立用户；跨版本灰度对比时若不控制机型分布、弱网比例和活跃人群迁移，用户群体的自然波动很容易被误判为新版本回归。</p>
+<h3 id="3-高可用遥测与分析遥测分层"><a href="#3-高可用遥测与分析遥测分层" class="headerlink" title="3. 高可用遥测与分析遥测分层"></a>3. 高可用遥测与分析遥测分层</h3><p>第一版在讨论<a target="_blank" rel="noopener" href="https://sre.google/sre-book/monitoring-distributed-systems/">分布式监控</a>与<a target="_blank" rel="noopener" href="https://sre.google/sre-book/effective-troubleshooting/">有效排障</a>时，其实已经隐含了两类需求：触发应急动作的信号要简单、迅速、面向症状，而定位根因则需要高维上下文。第二版将这一分野正式提炼为<strong>高可用遥测</strong>与<strong>分析遥测</strong>的分层架构：前者追求最新状态、低延迟、极高可用性与极简处理链路；后者追求数据完整性、多维关联能力、保留周期与存储性价比（PDF 304–310 页）。两者的工程取舍截然相反，一旦绑在同一条复杂依赖链上，重度分析的抖动就会反噬基础保护。</p>
+<p>在资源受限的终端设备上，这条边界尤为刚性。本地健康保护（如 Watchdog 超时处置、内存与温控保护、关键现场最小化留存）绝不能等待端云网络上传、知识库检索或大模型推理；而长链路的用户任务还原、版本趋势对比和有界故障深挖，则应走异步分析通道。两者可以共享统一的事件接入语义，但必须严格隔离运行依赖与资源配额——工程上未必非要拆成两个常驻进程，核心验收标准只有一条：分析链路拥塞或失效时，绝不能拖垮本地保护路径。</p>
+<h3 id="4-数据损失也是证据的一部分"><a href="#4-数据损失也是证据的一部分" class="headerlink" title="4. 数据损失也是证据的一部分"></a>4. 数据损失也是证据的一部分</h3><p>第一版《<a target="_blank" rel="noopener" href="https://sre.google/sre-book/effective-troubleshooting/">Effective Troubleshooting</a>》提醒排障者时刻审视“手头观测是否足以支撑假设”，切忌把日志当成系统行为的无损录像。第二版在客户端采集与数据生命周期章节中指出，批量延迟上传、本地存储配额、设备时钟漂移与重试引发的重复提交，都会系统性地改变数据面貌：环形缓冲区淘汰旧记录会抹掉故障起点，拒写新记录则会丢失当前状态——保留与淘汰策略直接决定了后续还能回答什么问题；书中介绍的 HMD 等机制，正是围绕公共保留策略与数据价值开展治理的体现（PDF 317–326、336–340 页）。</p>
+<p>迁移到设备侧，每一份诊断证据包都应当“自带说明书”，显式附带时间覆盖窗口、采样率、已知丢弃或截断计数、权限与能力边界，以及时钟质量标记。分析器必须能够依靠元数据区分四种截然不同的沉默：<strong>事件确实未发生、发生了但未命中采样或已被覆盖、当前系统裁剪不支持该采集点、以及采集器自身执行失败</strong>。拼接跨内核、Native、虚拟机与云端的时间线时，若存在单调时钟与墙钟切换或跨源偏差，应直接标出对齐误差乃至“顺序不可判定区间”，避免强行排序制造伪因果。同时，数据保留期限应按诊断用途与存储成本核定——某些低频关键现场只在罕见恶性故障时才会被调阅，不能仅凭日常访问率低就自动清理。</p>
+<hr>
+<p><em>当单次任务的测量与证据边界立住之后，问题便延伸到持续演进的系统：一次异常究竟对应哪次变更？那些尚未触发告警的隐患又藏在哪里？第 5 与第 6 项给出了回答。</em></p>
+<h3 id="5-调用方变更验证与实际版本归因"><a href="#5-调用方变更验证与实际版本归因" class="headerlink" title="5. 调用方变更验证与实际版本归因"></a>5. 调用方变更验证与实际版本归因</h3><p>发布是否安全，最终取决于调用方的实际体验，而非被发布组件自身的存活指标，《The Site Reliability Workbook》中的《<a target="_blank" rel="noopener" href="https://sre.google/workbook/canarying-releases/">金丝雀发布</a>》已对此给出操作范式。第二版提出的 Client-Focused Change Supervision（面向调用方的变更监督）更进一步，将调用方观测到的结果直接关联到<strong>实际参与处理该次请求的下游依赖版本</strong>，专门捕捉“后端自身指标全绿、返回看似正常，上游业务却因语义或格式变化而受损”的隐蔽回归（PDF 539–544 页）。在服务化架构中，这里的 client 泛指上游调用方，而“版本”也不仅限于二进制镜像，同样涵盖动态配置与数据产物。</p>
+<p>现代终端系统同样早已不是单一整包固件：系统框架、独立更新组件、运行时特性开关与云端下发策略往往按各自节奏灰度。对关键用户任务，设备侧 DFX 应记录实际参与该次交互的核心组件、配置批次与实验分组，使异常能够迅速收敛到候选变更集合。但端侧关联必须严控标签基数、跨进程传播范围与单次 IPC 开销，切忌在常规调用链上透传完整依赖图；版本关联的职责是缩小排查半径，最终定因仍需留给对照实验与机制验证。</p>
+<h3 id="6-从时间线和拓扑走向控制关系与风险"><a href="#6-从时间线和拓扑走向控制关系与风险" class="headerlink" title="6. 从时间线和拓扑走向控制关系与风险"></a>6. 从时间线和拓扑走向控制关系与风险</h3><p>传统的事故复盘与假设检验擅长解释“已经爆出来的故障”，《<a target="_blank" rel="noopener" href="https://sre.google/resources/practices-and-processes/twenty-years-of-sre-lessons-learned/">Twenty Years of SRE Lessons Learned</a>》便系统沉淀了二十年来的缓解与恢复教训。第二版则引入源自系统安全工程的 STAMP 模型，以及配套的前瞻风险分析（STPA）和事故因果分析（CAST），把视野从线性的事件时间线与调用拓扑，扩展到<strong>控制器、反馈回路、危险状态、不安全控制动作（Unsafe Control Actions）及其成立的上下文</strong>（PDF 422–437 页起、894–899 页）。在这一视角下，即便眼下所有监控面板全绿，结构性风险也可能早已潜伏——例如从未实操验证过的恢复流程、缺少回退开关的配置变更，或是表面独立却共享底层故障域的双路组件。</p>
+<p>对设备侧而言，不必一上来对全系统做重型建模，更务实的切入点是先挑出“升级重度取证、重启应用或服务、回滚动态配置”等少数高影响控制动作做离线 STPA 分析：梳理当反馈延迟或状态失真时，这些原本用于止损的动作在什么条件下反而会变成加剧雪崩的不安全动作（例如在整机内存颠簸期频繁拉起崩溃进程或触发全量转储），再把结论固化为动作的前置条件、禁止状态、有效期限、限流配额与熔断停止条件。这样沉淀下来的风险库记录的是具体的<strong>控制回路缺口</strong>，而不只是事后贴上的历史故障分类标签。当然，无论是时间先后、拓扑相邻还是风险领先指标，都只是引导调查与提前治理的抓手，不能替代具体的证据核验。</p>
+<hr>
+<p><em>一旦把运维动作视作需要受控反馈环约束的“控制动作”，概率性 Agent 进入 SRE 现场后的定位也就水落石出了。第 7 至第 9 项围绕执行控制、全轨迹评测与策略实验收束全篇。</em></p>
+<h3 id="7-渐进自治与独立执行控制"><a href="#7-渐进自治与独立执行控制" class="headerlink" title="7. 渐进自治与独立执行控制"></a>7. 渐进自治与独立执行控制</h3><p>在引入大模型之前，《Building Secure &amp; Reliable Systems》中的《<a target="_blank" rel="noopener" href="https://google.github.io/building-secure-and-reliable-systems/raw/ch03.html">Safe Proxies</a>》就已经在执行入口处建立了权限校验、操作审计与速率限制等硬边界。第二版将这套安全哲学延伸至概率性 Agent：自治演进遵循“只读调查 → 人工审批执行 → 限定验证场景自治”的渐进路径，一旦环境风险升高或模型表现退化，随时撤回自治权；书中的 L0–L4 划分用于界定人机职责分工，并非要求所有系统都向 L4 演进，像 AI Operator 这类高自治实践也严格限定在经过充分验证的特定场景内（PDF 827–830、845–850 页）。</p>
+<p>阅读这一部分时，还适合与 Google 公开发表的《<a target="_blank" rel="noopener" href="https://sre.google/resources/practices-and-processes/ai-engineering-reliable-operations/">AI in SRE</a>》对照来看：该文介绍了 AI Operator、Actus、IRM Analyzer 等内部实践案例，同时也探讨了更远期的技术愿景。对工程落地最有启发的是其中<strong>“将概率性推理与确定性执行控制相分离”</strong>的架构原则；但在引用时需把已验证的局部案例与作者的未来展望分开审视，既不宜把远期愿景当作通用自治已经成熟的证明，也不应将公开文章里提及的所有组件直接等同于第二版书稿正文。</p>
+<p>落到设备侧，凡是确定性规则已经够用的传统自动化都应继续保留。任何由 Agent 提议的处置动作，执行前必须由独立控制层核对系统实时状态，执行后必须由独立验收逻辑检查用户侧功能是否真正恢复，绝不能凭执行接口返回的一句“调用成功”就宣告闭环。同时，还应按<strong>可逆、可补偿、不可逆</strong>三档事先定义处置规约：重启进程或许能让服务重新响应，却找不回用户尚未保存的编辑内容——“动作＋验证＋回滚”是一项需要逐条落实的工程设计要求，现实世界的副作用不会因为套上事务术语就自动变成无损原子操作。</p>
+<h3 id="8-测试对象扩展到调查过程与终止"><a href="#8-测试对象扩展到调查过程与终止" class="headerlink" title="8. 测试对象扩展到调查过程与终止"></a>8. 测试对象扩展到调查过程与终止</h3><p>第一版《<a target="_blank" rel="noopener" href="https://sre.google/sre-book/testing-reliability/">Testing for Reliability</a>》关注的是如何验证确定性软件系统的失效边界；当排障主体变成 Agent 后，被测对象便随之扩展为整个调查闭环。第二版指出，除了常规代码，测试还必须覆盖 Prompt、底层模型、工具接口规格、参数构造、工具报错与过载退避、重复打转、推理步数、资源成本以及<strong>何时终止调查</strong>，并配合专门的 AI 质量 SLO 持续度量（PDF 565–570、786–790 页）。需要注意，这里的<strong>Agent 测试分层</strong>与前一节的 <strong>L0–L4 自治等级</strong>属于两套正交分类：前者用于组织验证深度，后者用于划分运行职责。</p>
+<p>对 OpenHarmony 与 Android 团队而言，这意味着在回放历史 AppFreeze 或 Crash 样本集时，不能只喂给模型干净完整的标准日志，还应主动注入真实世界里的残缺与干扰场景：关键日志缺失、trace 被截断、权限受限被拒、组件拓扑或配置信息过期、工具调用超时、多故障并发，尤其是<strong>业务其实已经自愈恢复、Agent 却仍在后台反复拉取重型取证而不知停止</strong>的场景。评测指标应当综合衡量结论是否有证据支撑、误判代价、及时停止与升级人工的纪律、端侧资源消耗以及最终功能恢复效果——接口返回合法 JSON 只代表格式合规，与根因报告的字面相似度高低一样，都不能直接等同于诊断任务成功。</p>
+<h3 id="9-统一基础，允许策略实验"><a href="#9-统一基础，允许策略实验" class="headerlink" title="9. 统一基础，允许策略实验"></a>9. 统一基础，允许策略实验</h3><p>把平台工程、Agent 安全边界与全轨迹评测三条线交汇到一起，就能得出本文对第二版演进的一点综合判断：<strong>应当优先统一的，是约束行为安全与保证比较公平的底层契约；应当保持开放的，则是具体的调查与推理策略。</strong> 标准化接口的意义不在于把所有排障过程锁死成唯一一条流程图，而在于让不同方法能够在同一把尺子下接受检验。</p>
+<p>映射到设备侧架构，公共层负责拉齐证据元数据、权限门禁、资源预算、工具语义与准入评测门槛；在此之上，无论是选用不同尺寸的模型、更换 Agent Harness，还是对比“自由探索调查”“固定排障剧本”与“按需挂载领域 Skill”，都可以开展受控对照实验。只要固定可用证据范围、工具权限、资源上限与评分口径，并完整记录每一步真实调用轨迹，团队就不必在缺乏数据时过早固化调查路径。唯一需要死守的实验红线是<strong>严格隔离训练样本、长期记忆库与评测集</strong>，防止历史答案泄漏——否则模型只是背熟了旧故障指纹，却容易被误认为具备泛化诊断能力。</p>
 <p><a id="references-comparison"></a></p>
-<h2 id="公开参考材料仍然解决什么问题"><a href="#公开参考材料仍然解决什么问题" class="headerlink" title="公开参考材料仍然解决什么问题"></a>公开参考材料仍然解决什么问题</h2><p>这些材料补充了实践细节，也说明第二版与此前工作的连续性。表中的第二版关系来自阅读笔记与本文综合判断。</p>
+<h2 id="三、公开参考材料在拼图中的位置"><a href="#三、公开参考材料在拼图中的位置" class="headerlink" title="三、公开参考材料在拼图中的位置"></a>三、公开参考材料在拼图中的位置</h2><p>第二版并非凭空重写，Google 过去十年间陆续公开的多份书籍与白皮书，实际上构成了从第一版通往第二版的演进台阶。把这批公开材料与第二版放在同一张表里对照，既能看清哪些免费公开的操作指南今天依然可以直接拿来落地，也能更准确地把握第二版究竟在哪一层做了收束与拔高（表中“与第二版的关系”综合自阅读笔记与本文判断）：</p>
 <style>
 .sre-reference-table { overflow-x: auto; }
 .sre-reference-table table { width: 100%; min-width: 600px; font-size: 17px; line-height: 1.65; }
@@ -94,69 +95,72 @@
 <thead>
 <tr>
 <th>材料</th>
-<th>仍然有用的内容</th>
+<th>今天仍然直接有用的内容</th>
 <th>与第二版的关系</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><a target="_blank" rel="noopener" href="https://sre.google/workbook/alerting-on-slos/">The Site Reliability Workbook</a></td>
-<td>SLO 告警与发布实践，帮助把原则变成操作方法</td>
-<td>第二版更强调公共实施机制与客户端特殊性</td>
+<td>SLO 告警配置与金丝雀发布等可操作范式，连接原则与日常实操</td>
+<td>第二版进一步强调平台化默认承载与客户端测量特殊性</td>
 </tr>
 <tr>
 <td><a target="_blank" rel="noopener" href="https://google.github.io/building-secure-and-reliable-systems/raw/ch03.html">Building Secure &amp; Reliable Systems</a></td>
-<td>Safe Proxies 的权限、审计、限速与执行入口控制</td>
-<td>第二版把安全约束扩展到概率性 Agent</td>
+<td>Safe Proxies 的最小权限、操作审计、限速与统一执行入口</td>
+<td>第二版将这套确定性执行边界扩展到概率性 Agent 场景</td>
 </tr>
 <tr>
 <td><a target="_blank" rel="noopener" href="https://sre.google/resources/practices-and-processes/twenty-years-of-sre-lessons-learned/">Twenty Years of SRE Lessons Learned</a></td>
-<td>事故处置、缓解和恢复经验</td>
-<td>第二版将相关经验纳入平台与系统风险框架</td>
+<td>大规模事故处置、快速缓解与恢复验证的实战经验总结</td>
+<td>第二版将相关经验纳入公共平台治理与系统控制风险框架</td>
 </tr>
 <tr>
 <td><a target="_blank" rel="noopener" href="https://sre.google/resources/practices-and-processes/product-focused-reliability-for-sre/">Product-Focused Reliability</a></td>
-<td>用户目标、关键步骤与产品结果</td>
-<td>第二版补充数据质量与跨依赖变更验证</td>
+<td>围绕用户目标、关键交互步骤与产品结果定义可靠性</td>
+<td>第二版补齐了客户端数据残缺记账与跨依赖实际版本归因</td>
 </tr>
 <tr>
 <td><a target="_blank" rel="noopener" href="https://sre.google/resources/practices-and-processes/ai-engineering-reliable-operations/">AI in SRE</a></td>
-<td>AI Operator、Actus、IRM Analyzer 等案例及作者展望</td>
-<td>第二版从更广的 SRE 生命周期展开；两份材料不逐项等同</td>
+<td>AI Operator、Actus、IRM Analyzer 等案例介绍与技术展望</td>
+<td>第二版置于完整 SRE 生命周期中讨论；公开文稿与书稿不逐项等同</td>
 </tr>
 <tr>
 <td><a target="_blank" rel="noopener" href="https://sre.google/resources/book-update/">SRE Book Updates, by Topic</a></td>
-<td>按主题发现论文、演讲与工作坊</td>
-<td>它是资料索引，不是第二版正文</td>
+<td>按主题检索历年公开论文、技术演讲与工作坊材料</td>
+<td>属于官方外部资料索引，用于延伸查阅而非第二版正文</td>
 </tr>
 </tbody></table>
 </div>
 
 <p><a id="device-assets"></a></p>
-<h2 id="OpenHarmony-Android：优先形成四项资产"><a href="#OpenHarmony-Android：优先形成四项资产" class="headerlink" title="OpenHarmony &#x2F; Android：优先形成四项资产"></a>OpenHarmony &#x2F; Android：优先形成四项资产</h2><p>对设备侧，最值得先做的不是完整复制云端平台，而是形成四项能被实现和检验的资产：</p>
+<h2 id="四、落回-OpenHarmony-Android：优先沉淀四项资产"><a href="#四、落回-OpenHarmony-Android：优先沉淀四项资产" class="headerlink" title="四、落回 OpenHarmony &#x2F; Android：优先沉淀四项资产"></a>四、落回 OpenHarmony &#x2F; Android：优先沉淀四项资产</h2><p>对终端操作系统团队而言，借鉴 Google SRE 第二版最忌讳的是脱离端侧算力、功耗与隐私约束去照搬云端大平台。真正值得优先投入的，是按先后依赖关系沉淀出四项可实现、可验证的工程资产——<strong>先定口径，再供原料，接着立住评测基线，最后才开放受控处置</strong>：</p>
 <ol>
-<li><strong>用户任务与证据质量契约。</strong> 定义任务的开始、预期结果、明确失败、取消、有效期限，以及观测未闭合、丢失、不支持的含义；确定成功率分母与版本比较口径。</li>
-<li><strong>有界采集接口。</strong> 约定采集范围、时间窗口、资源预算、权限、取消与停止条件；返回证据及其质量元数据，而不是只返回一份看似完整的日志。</li>
-<li><strong>只读调查与全轨迹评测。</strong> 先让调查过程可重放、可审计、可比较，再决定哪些动作值得开放；评分覆盖取证、推断、停止、升级和成本。</li>
-<li><strong>恢复、变更及独立验证契约。</strong> 为每个动作定义当前状态检查、允许范围、禁止状态、补偿或回退方式，以及证明用户任务恢复的独立验收。</li>
+<li><strong>用户任务与证据质量契约（定口径）。</strong> 明确关键交互任务的起点、预期可见结果、明确失败判定、用户取消与有效时间窗，同时规范“观测未闭合、中途丢失、能力不支持”的记账语义，由此锁死成功率分母与跨版本比较口径。</li>
+<li><strong>有界采集接口（供原料）。</strong> 为每一类端侧采集器约定采集范围、回溯窗口、CPU／内存／字节配额、权限要求及超时取消行为；接口不仅返回现场数据，还必须一并返回截断标记、丢弃计数与时钟对齐质量，拒绝交付一份“看似完整、实则静默丢包”的日志。</li>
+<li><strong>只读调查与全轨迹评测集（立基线）。</strong> 在开放任何写操作之前，先让 Agent 或排障流程在只读权限下做到全程可重放、可审计、可横向对比；基于注入了残缺与自愈场景的故障集，对取证合理性、推断证据链、停止纪律、人工升级与资源消耗综合打分。</li>
+<li><strong>受控恢复与独立验收契约（开动作）。</strong> 只对通过基线验证的窄场景逐步开放处置动作；为每个动作逐一定义执行前状态检查、允许范围、禁止状态、回退或补偿方案，以及独立于执行器之外的用户任务恢复验收。</li>
 </ol>
-<p><strong>检查状态变化本身也有成本。</strong> O(1)、压缩或只输出摘要，都不能证明低开销；执行频率、输入规模、缓存行为和唤醒路径仍然会改变真实成本。CPU、内存、唤醒、写入、网络、能耗和尾延迟应分别实测，不直接移植云端频率、配额或阈值。</p>
-<p>网络、Agent 或分析后端不可用时，本地已经验证的保护能力仍应成立。这是分层架构的验收条件，而不是故障后的补救承诺。</p>
+<p>推进这四项资产时，还有两条端侧铁律不能退让：</p>
+<ul>
+<li><strong>观测与检查本身的开销必须回到目标硬件实测。</strong> 算法复杂度标称 <code>O(1)</code>、单条记录经过压缩，或者只向模型输出精简摘要，都不自动等于低系统开销；触发频率、输入规模、缓存局部性、跨进程唤醒路径与落盘时机同样左右真实成本。CPU、内存、唤醒次数、闪存写入、网络流量、整机功耗与尾延迟必须在目标设备上分别实测，不能直接移植云端采样率、配额或告警阈值。</li>
+<li><strong>远端不可用时的本地保护独立性是架构准入红线。</strong> 当设备处于断网弱网、云端分析后端不可用或 Agent 异常退出时，本地已经验证过的确定性保护机制仍必须独立生效。这不是事后补救的免责声明，而是遥测与控制分层设计通过验收的前提条件。</li>
+</ul>
 <p><a id="frozen-ui"></a></p>
-<h2 id="用“主线程响应，但界面不刷新”检验方案"><a href="#用“主线程响应，但界面不刷新”检验方案" class="headerlink" title="用“主线程响应，但界面不刷新”检验方案"></a>用“主线程响应，但界面不刷新”检验方案</h2><p>回到开头的场景：主线程响应、CPU 不忙，但自绘界面不刷新。优先复用业务或框架本来经过的语义节点，观察用户动作是否产生预期结果，而不是持续截图或扫描 UI。</p>
-<p>一个可检验的顺序是：</p>
+<h2 id="五、回到现场：用“主线程响应但界面停刷”走通闭环"><a href="#五、回到现场：用“主线程响应但界面停刷”走通闭环" class="headerlink" title="五、回到现场：用“主线程响应但界面停刷”走通闭环"></a>五、回到现场：用“主线程响应但界面停刷”走通闭环</h2><p>现在回到开篇那个棘手现场：主线程消息循环照常响应、CPU 占用很低，但自绘界面（如自定义画布、游戏渲染面或跨平台自绘视图）已经停刷。传统基于线程心跳或队列耗时的存活探针之所以失灵，是因为断裂发生在“输入分发 → 业务状态变更 → 脏区标记或 VSync 请求 → 渲染提交与图形缓冲交换”的后半程；而如果在设备上常驻截屏比对或高频遍历整棵 UI 树，开销与隐私风险又难以承受。</p>
+<p>套用前文的四项工程资产，可以在不引入重型常驻开销的前提下，把诊断与恢复组织成一条可检验的五步闭环：</p>
 <ol>
-<li><strong>识别任务。</strong> 用户触发了什么操作，预期哪项内容或状态发生变化？只知道线程还活着不足以回答。</li>
-<li><strong>核查闭合。</strong> 预期结果是否出现？任务是否已取消、被替代，或仍在有效期限内？观测节点是否支持，结束证据是否丢失？</li>
-<li><strong>按预算补采。</strong> 有明确异常或证据缺口时，获取与该任务有关的有界证据，保留时间质量、采样与丢失说明。</li>
-<li><strong>检验候选解释。</strong> 区分渲染未推进、数据未更新、状态未提交等候选路径；时间相邻的日志只提供线索，不能直接判定根因。</li>
-<li><strong>独立验证恢复。</strong> 如果实施了获准的恢复动作，检查原先预期的功能结果是否重新出现，并停止已无必要的调查与采集。</li>
+<li><strong>锚定任务语义节点，而非线程心跳。</strong> 优先复用业务层或图形框架本来必经的轻量语义节点，将健康预期定义为“用户触发交互后，应在有效时间窗内完成目标状态推进并提交对应帧更新”。若某类纯自绘表面尚未接入可用语义节点，系统应诚实将其标为“观测不支持”，而不是拿“主线程存活”去背书“界面健康”。</li>
+<li><strong>双态核查闭合与取消。</strong> 当有效窗口内未观测到预期的帧提交或状态落定时，先按“功能结果 × 观测状态”做一次低成本核查：用户是否已经切到后台、主动取消，或发起新操作覆盖了原任务？语义事件是否因配额限流或缓冲区覆盖而丢失？先把正常交互中断、观测缺口与真正的停刷异常拆开。</li>
+<li><strong>按预算触发有界补采。</strong> 只有在确认闭合异常或存在关键证据缺口时，才围绕该任务的时间窗按配额拉取有界现场——例如最近一段输入分发记录、渲染线程与图形缓冲队列状态、Fence 等待关系及参与组件的版本标签——并随包附上覆盖区间、丢弃计数与跨源时钟对齐说明。</li>
+<li><strong>对照检验竞争假设。</strong> 依据补采证据逐一排查“业务数据未更新”“状态已改但未触发重绘请求”“渲染管线或缓冲队列阻塞”等候选解释；时间上恰好相邻的错误日志仅作为待核实线索，在缺乏链路证据时不直接跳向根因结论。</li>
+<li><strong>独立验收恢复并及时终止。</strong> 若策略允许执行预先获准的受控恢复动作（如重建渲染表面、回退问题动态配置或受限重启相关组件），执行后必须通过独立检查确认后续交互已能重新驱动有效帧提交，并在确认恢复或触达预算上限后立即停止补采与调查循环。</li>
 </ol>
-<p>业务或框架缺少可用语义节点时，应将覆盖缺口记为未知或不支持，而不是凭线程存活认定功能健康。本文提出的是待验证的设备侧设计，不给出未经测量的开销、阈值或诊断成功率。</p>
-<h2 id="结论：先建立可信边界，再扩大自动化"><a href="#结论：先建立可信边界，再扩大自动化" class="headerlink" title="结论：先建立可信边界，再扩大自动化"></a>结论：先建立可信边界，再扩大自动化</h2><p>第二版最值得迁移的，是可靠性实践的组织方式：共性政策进入公共平台，用户结果建立在可信测量上，动作受独立控制，调查与恢复持续接受评估。</p>
-<p>对 OpenHarmony &#x2F; Android，优先顺序是<strong>任务与证据契约 → 有界采集 → 只读调查评测 → 受控恢复与独立验收</strong>。这条路径既能复用已有 DFX 能力，也允许不同 Agent 策略通过公平实验竞争；不必先建一个大而全的自治系统。</p>
-<p>相关讨论：<a href="/2026/10/08/lpc-2026-sre-observability/">LPC 2026 的 SRE 与可观测性</a> · <a href="/2026/10/31/technical-tracking-weekly/">技术跟踪周报</a>。</p>
+<p>以上闭环展示的是如何用第二版的组织原则重构端侧疑难故障的工程设计；至于具体机型与框架上的埋点损耗、判定窗口及诊断准确率，仍须依托目标系统与真实故障样本实测标定，本文不预设未经测量的经验数值。</p>
+<h2 id="结语：先建立可信边界，再扩大自动化"><a href="#结语：先建立可信边界，再扩大自动化" class="headerlink" title="结语：先建立可信边界，再扩大自动化"></a>结语：先建立可信边界，再扩大自动化</h2><p>回看《Site Reliability Engineering》第二版，最值得跨领域迁移的并不是某一个具体的内部工具名，而是它组织可靠性工程的秩序：<strong>让共性政策沉入公共平台，让用户结果建立在诚实可信的测量之上，让控制动作接受独立于推理之外的安全约束，并让调查与恢复全程置于持续评测之下。</strong></p>
+<p>对 OpenHarmony 与 Android 的设备侧演进而言，这意味着一条克制而清晰的落地顺序：<strong>任务与证据契约 → 有界采集接口 → 只读调查与全轨迹评测 → 受控恢复与独立验收</strong>。沿着这条路径推进，既能充分复用现有的 DFX 基础设施，又能为不同模型与 Agent 策略提供公平演进的试验场——先把可信边界立住，自动化能力的扩大才不会变成故障现场新的风险源。</p>
+<p>延伸阅读：<a href="/2026/10/08/lpc-2026-sre-observability/">LPC 2026 的 SRE 与可观测性</a> · <a href="/2026/10/31/technical-tracking-weekly/">技术跟踪周报</a>。</p>
 <p><a id="reading-map"></a></p>
-<h2 id="来源与原阅读定位"><a href="#来源与原阅读定位" class="headerlink" title="来源与原阅读定位"></a>来源与原阅读定位</h2><h3 id="第二版"><a href="#第二版" class="headerlink" title="第二版"></a>第二版</h3><p><a target="_blank" rel="noopener" href="https://www.oreilly.com/library/view/site-reliability-engineering/9798341607675/">Site Reliability Engineering, 2nd Edition：O’Reilly 书目入口</a>。以下保留原阅读笔记中 <strong>984 页 PDF 的页面序号</strong>，可能与纸书页码不同；本次未重新核读 PDF，不作为直接引文页码使用。</p>
+<h2 id="六、来源与原阅读定位"><a href="#六、来源与原阅读定位" class="headerlink" title="六、来源与原阅读定位"></a>六、来源与原阅读定位</h2><h3 id="第二版"><a href="#第二版" class="headerlink" title="第二版"></a>第二版</h3><p><a target="_blank" rel="noopener" href="https://www.oreilly.com/library/view/site-reliability-engineering/9798341607675/">Site Reliability Engineering, 2nd Edition：O’Reilly 书目入口</a>。以下保留原阅读笔记中 <strong>984 页 PDF 的页面序号</strong>，可能与纸书或在线排版页码不同；本次成文未重新核读该 PDF，仅作检索定位，不作为直接引文页码使用。</p>
 <ul>
 <li>前言“补充而非替代”：8。</li>
 <li>客户端 SLO：278–282。</li>
